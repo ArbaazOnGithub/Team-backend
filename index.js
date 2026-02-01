@@ -76,6 +76,7 @@ io.on('connection', (socket) => {
 app.use('/api', authRoutes);
 app.use('/api/requests', requestRoutes);
 
+app.get('/', (req, res) => res.send("Backend is Running"));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 // --- 6. DATABASE & SERVER ---
