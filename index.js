@@ -34,7 +34,11 @@ app.set('transporter', transporter);
 
 // --- 3. MIDDLEWARE ---
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' ? 'your-frontend-domain.com' : '*',
+  origin: [
+    "https://team-frontend-murex.vercel.app",
+    process.env.FRONTEND_URL,
+    "http://localhost:5173"
+  ].filter(Boolean),
   credentials: true
 }));
 app.use(express.json());
