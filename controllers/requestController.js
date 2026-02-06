@@ -20,7 +20,12 @@ exports.getRequests = async (req, res) => {
         let queryFilter = status ? { status } : {};
         if (req.user.role !== 'admin') queryFilter.user = req.userId;
         const skip = (page - 1) * limit;
-        const requests = await Request.find(queryFilter).sort({ createdAt: -1 }).limit(parseInt(limit)).skip(skip).populate('user', 'name profileImage role');
+        const requests = await Request.find(queryFilter)
+            .sort({ createdAt: -1 })
+            .limit(parseInt(limit))
+            .skip(skip)
+            .populate('user', 'name profileImage role')
+            .populate('actionBy', 'name');
         const total = await Request.countDocuments(queryFilter);
         res.json({ requests, pagination: { total, page: parseInt(page), pages: Math.ceil(total / limit) } });
     } catch (err) { res.status(500).json({ error: 'Error' }); }
@@ -31,9 +36,14 @@ exports.updateRequestStatus = async (req, res) => {
     const io = req.app.get('socketio');
 
     try {
-        let updated = await Request.findByIdAndUpdate(req.params.id, { status, updatedAt: new Date() }, { new: true });
+        let updated = await Request.findByIdAndUpdate(
+            req.params.id,
+            { status, actionBy: req.userId, updatedAt: new Date() },
+            { new: true }
+        );
         if (!updated) return res.status(404).json({ error: 'Not found' });
         updated = await updated.populate('user', 'name profileImage role');
+        updated = await updated.populate('actionBy', 'name');
         io.emit('status_update', updated);
         res.json(updated);
     } catch (err) { res.status(500).json({ error: 'Error' }); }
