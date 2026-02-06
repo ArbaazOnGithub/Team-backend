@@ -13,6 +13,7 @@ const jwt = require('jsonwebtoken');
 // Route Imports
 const authRoutes = require('./routes/authRoutes');
 const requestRoutes = require('./routes/requestRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -79,6 +80,7 @@ io.on('connection', (socket) => {
 // --- 5. ROUTES ---
 app.use('/api', authRoutes);
 app.use('/api/requests', requestRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/', (req, res) => res.send("Backend is Running"));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
