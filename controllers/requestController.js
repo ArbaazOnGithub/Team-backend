@@ -32,13 +32,13 @@ exports.getRequests = async (req, res) => {
 };
 
 exports.updateRequestStatus = async (req, res) => {
-    const { status } = req.body;
+    const { status, comment } = req.body;
     const io = req.app.get('socketio');
 
     try {
         let updated = await Request.findByIdAndUpdate(
             req.params.id,
-            { status, actionBy: req.userId, updatedAt: new Date() },
+            { status, comment, actionBy: req.userId, updatedAt: new Date() },
             { new: true }
         );
         if (!updated) return res.status(404).json({ error: 'Not found' });
