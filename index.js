@@ -56,7 +56,15 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // --- 4. SOCKET.IO ---
 const io = new Server(server, {
-  cors: { origin: process.env.NODE_ENV === 'production' ? 'your-frontend-domain.com' : '*', methods: ["GET", "POST"] }
+  cors: {
+    origin: [
+      "https://team-frontend-murex.vercel.app",
+      process.env.FRONTEND_URL,
+      "http://localhost:5173"
+    ].filter(Boolean),
+    methods: ["GET", "POST"],
+    credentials: true
+  }
 });
 app.set('socketio', io);
 
