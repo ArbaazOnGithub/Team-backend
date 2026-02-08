@@ -34,14 +34,28 @@ const transporter = nodemailer.createTransport({
 app.set('transporter', transporter);
 
 // --- 3. MIDDLEWARE ---
+
+// ✅ FIX #1: Enhanced CORS Configuration
 app.use(cors({
   origin: [
     "https://team-frontend-murex.vercel.app",
     process.env.FRONTEND_URL,
     "http://localhost:5173"
   ].filter(Boolean),
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
+
+// ✅ FIX #2: Add Global Headers for CORB Fix - MUST BE BEFORE ROUTES
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  next();
+});
+
 app.use(express.json());
 
 const limiter = rateLimit({
@@ -50,9 +64,31 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+// ✅ FIX #3: Serve Static Files with Proper Headers (CRITICAL FIX)
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  setHeaders: (res, filePath) => {
+    // Set correct Content-Type based on file extension
+    const ext = path.extname(filePath).toLowerCase();
+
+    if (ext === '.png') {
+      res.set('Content-Type', 'image/png');
+    } else if (ext === '.jpg' || ext === '.jpeg') {
+      res.set('Content-Type', 'image/jpeg');
+    } else if (ext === '.gif') {
+      res.set('Content-Type', 'image/gif');
+    } else if (ext === '.webp') {
+      res.set('Content-Type', 'image/webp');
+    }
+
+    // CORS headers for images - FIXES CORB ERROR
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.set('Cache-Control', 'public, max-age=31536000');
+  }
+}));
 
 // --- 4. SOCKET.IO ---
 const io = new Server(server, {
