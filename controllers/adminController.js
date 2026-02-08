@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Request = require('../models/Request');
 
 // Get all users
 exports.getAllUsers = async (req, res) => {
@@ -7,6 +8,19 @@ exports.getAllUsers = async (req, res) => {
         res.json(users);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch users' });
+    }
+};
+
+// Get all request logs for admin
+exports.getRequestLogs = async (req, res) => {
+    try {
+        const logs = await Request.find({})
+            .sort({ createdAt: -1 })
+            .populate('user', 'name email mobile')
+            .populate('actionBy', 'name');
+        res.json(logs);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch request logs' });
     }
 };
 

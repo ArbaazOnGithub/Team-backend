@@ -6,7 +6,10 @@ exports.createRequest = async (req, res) => {
 
     if (!query || !query.trim()) return res.status(400).json({ error: 'Query empty' });
     try {
-        let newReq = new Request({ user: req.userId, query: query.trim() });
+        const lastReq = await Request.findOne().sort({ requestNo: -1 });
+        const requestNo = lastReq && lastReq.requestNo ? lastReq.requestNo + 1 : 101;
+
+        let newReq = new Request({ user: req.userId, query: query.trim(), requestNo });
         await newReq.save();
         newReq = await newReq.populate('user', 'name profileImage role');
         io.emit('new_request', newReq);
