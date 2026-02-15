@@ -38,6 +38,7 @@ app.set('transporter', transporter);
 // ✅ FIX #1: Enhanced CORS Configuration
 app.use(cors({
   origin: [
+    "https://attendance.n1solution.in",
     "https://team-frontend-murex.vercel.app",
     process.env.FRONTEND_URL,
     "http://localhost:5173"
@@ -94,6 +95,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
 const io = new Server(server, {
   cors: {
     origin: [
+      "https://attendance.n1solution.in",
       "https://team-frontend-murex.vercel.app",
       process.env.FRONTEND_URL,
       "http://localhost:5173"
