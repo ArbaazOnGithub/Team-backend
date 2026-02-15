@@ -1,7 +1,7 @@
 const Request = require('../models/Request');
 
 exports.createRequest = async (req, res) => {
-    const { query } = req.body;
+    const { query, requestType, startDate, endDate, daysCount } = req.body;
     const io = req.app.get('socketio');
 
     if (!query || !query.trim()) return res.status(400).json({ error: 'Query empty' });
@@ -9,7 +9,15 @@ exports.createRequest = async (req, res) => {
         const lastReq = await Request.findOne().sort({ requestNo: -1 });
         const requestNo = lastReq && lastReq.requestNo ? lastReq.requestNo + 1 : 101;
 
-        let newReq = new Request({ user: req.userId, query: query.trim(), requestNo });
+        let newReq = new Request({
+            user: req.userId,
+            query: query.trim(),
+            requestNo,
+            requestType: requestType || 'General',
+            startDate,
+            endDate,
+            daysCount
+        });
         await newReq.save();
         newReq = await newReq.populate('user', 'name profileImage role');
         io.emit('new_request', newReq);
@@ -27,7 +35,7 @@ exports.getRequests = async (req, res) => {
             .sort({ createdAt: -1 })
             .limit(parseInt(limit))
             .skip(skip)
-            .populate('user', 'name profileImage role')
+            .populate('user', 'name profileImage role paidLeaveBalance')
             .populate('actionBy', 'name');
         const total = await Request.countDocuments(queryFilter);
         res.json({ requests, pagination: { total, page: parseInt(page), pages: Math.ceil(total / limit) } });
@@ -39,13 +47,24 @@ exports.updateRequestStatus = async (req, res) => {
     const io = req.app.get('socketio');
 
     try {
+        const User = require('../models/User');
+        const oldRequest = await Request.findById(req.params.id);
+        if (!oldRequest) return res.status(404).json({ error: 'Not found' });
+
         let updated = await Request.findByIdAndUpdate(
             req.params.id,
             { status, comment, actionBy: req.userId, updatedAt: new Date() },
             { new: true }
         );
-        if (!updated) return res.status(404).json({ error: 'Not found' });
-        updated = await updated.populate('user', 'name profileImage role');
+
+        // Deduct from paidLeaveBalance if approved and it's a leave request
+        if (status === 'Approved' && oldRequest.status !== 'Approved' && updated.requestType === 'Leave') {
+            await User.findByIdAndUpdate(updated.user, {
+                $inc: { paidLeaveBalance: -(updated.daysCount || 0) }
+            });
+        }
+
+        updated = await updated.populate('user', 'name profileImage role paidLeaveBalance');
         updated = await updated.populate('actionBy', 'name');
         io.emit('status_update', updated);
         res.json(updated);

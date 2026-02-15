@@ -8,6 +8,7 @@ const UserSchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true },
     profileImage: { type: String, default: '' },
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
+    paidLeaveBalance: { type: Number, default: 0 },
 
     // Fields for Password Reset
     resetOtp: { type: String },

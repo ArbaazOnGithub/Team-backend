@@ -9,6 +9,8 @@ const fs = require('fs');
 const rateLimit = require('express-rate-limit');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
+const cron = require('node-cron');
+const User = require('./models/User');
 
 // Route Imports
 const authRoutes = require('./routes/authRoutes');
@@ -130,6 +132,18 @@ app.use('/api/admin', adminRoutes);
 
 app.get('/', (req, res) => res.send("Backend is Running"));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+
+// --- 7. CRON JOBS ---
+// Increment paidLeaveBalance by 2.5 on the 1st of every month at midnight
+cron.schedule('0 0 1 * *', async () => {
+  try {
+    console.log("Running monthly leave accumulation job...");
+    await User.updateMany({}, { $inc: { paidLeaveBalance: 2.5 } });
+    console.log("✓ Leave accumulation completed");
+  } catch (error) {
+    console.error("✗ Leave accumulation failed:", error);
+  }
+});
 
 // --- 6. DATABASE & SERVER ---
 mongoose.connect(MONGODB_URI)
