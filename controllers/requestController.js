@@ -59,6 +59,13 @@ exports.updateRequestStatus = async (req, res) => {
 
         // Deduct from paidLeaveBalance if approved and it's a leave request
         if (status === 'Approved' && oldRequest.status !== 'Approved' && updated.requestType === 'Leave') {
+            const userDoc = await User.findById(updated.user);
+            if (!userDoc || userDoc.paidLeaveBalance < (updated.daysCount || 0)) {
+                // REVERT the status update if balance is insufficient
+                await Request.findByIdAndUpdate(req.params.id, { status: oldRequest.status });
+                return res.status(400).json({ error: 'User does not have enough leave balance to approve this request.' });
+            }
+
             await User.findByIdAndUpdate(updated.user, {
                 $inc: { paidLeaveBalance: -(updated.daysCount || 0) }
             });
