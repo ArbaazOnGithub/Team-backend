@@ -121,11 +121,25 @@ io.use((socket, next) => {
   }
 });
 
+app.use('/api', authRoutes);
+app.use('/api/requests', requestRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 app.get('/', (req, res) => res.send("Backend is Running"));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+
+// --- 7. CRON JOBS ---
+// Increment paidLeaveBalance by 2.5 on the 1st of every month at midnight
+cron.schedule('0 0 1 * *', async () => {
+  try {
+    console.log("Running monthly leave accumulation job...");
+    await User.updateMany({}, { $inc: { paidLeaveBalance: 2.5 } });
+    console.log("✓ Leave accumulation completed");
+  } catch (error) {
+    console.error("✗ Leave accumulation failed:", error);
+  }
+});
 
 // --- 6. DATABASE & SERVER ---
 mongoose.connect(MONGODB_URI)
