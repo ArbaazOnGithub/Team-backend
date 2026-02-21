@@ -53,3 +53,35 @@ exports.deleteUser = async (req, res) => {
         res.status(500).json({ error: 'Failed to delete user' });
     }
 };
+// Update user leave balance
+exports.updateUserLeaveBalance = async (req, res) => {
+    try {
+        const { userId, newBalance, reason } = req.body;
+        const Notification = require('../models/Notification');
+        const io = req.app.get('socketio');
+
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const oldBalance = user.paidLeaveBalance || 0;
+        user.paidLeaveBalance = newBalance;
+        await user.save();
+
+        // Create notification
+        const diff = newBalance - oldBalance;
+        const message = `Admin adjusted your leave balance by ${diff > 0 ? '+' : ''}${diff} days. Reason: ${reason}`;
+
+        const notification = await Notification.create({
+            user: userId,
+            message,
+            type: 'leave_update'
+        });
+
+        // Emit real-time notification
+        io.to(userId.toString()).emit('notification_received', notification);
+
+        res.json({ message: 'Leave balance updated successfully', user });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update leave balance' });
+    }
+};

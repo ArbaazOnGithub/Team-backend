@@ -73,7 +73,19 @@ exports.updateRequestStatus = async (req, res) => {
 
         updated = await updated.populate('user', 'name profileImage role paidLeaveBalance');
         updated = await updated.populate('actionBy', 'name');
+
+        // Create Notification
+        const Notification = require('../models/Notification');
+        const notification = await Notification.create({
+            user: updated.user._id,
+            message: `Your request status has been updated to ${status}. Admin comment: ${comment || 'No comment'}`,
+            type: 'request_update'
+        });
+
+        // Emit notifications
+        io.to(updated.user._id.toString()).emit('notification_received', notification);
         io.emit('status_update', updated);
+
         res.json(updated);
     } catch (err) { res.status(500).json({ error: 'Error' }); }
 };

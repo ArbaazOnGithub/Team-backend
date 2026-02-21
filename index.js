@@ -16,6 +16,7 @@ const User = require('./models/User');
 const authRoutes = require('./routes/authRoutes');
 const requestRoutes = require('./routes/requestRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -120,30 +121,11 @@ io.use((socket, next) => {
   }
 });
 
-io.on('connection', (socket) => {
-  console.log(`✓ Socket Connected: ${socket.userId}`);
-  socket.on('disconnect', () => console.log('✗ Socket Disconnected'));
-});
-
-// --- 5. ROUTES ---
-app.use('/api', authRoutes);
-app.use('/api/requests', requestRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.get('/', (req, res) => res.send("Backend is Running"));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
-
-// --- 7. CRON JOBS ---
-// Increment paidLeaveBalance by 2.5 on the 1st of every month at midnight
-cron.schedule('0 0 1 * *', async () => {
-  try {
-    console.log("Running monthly leave accumulation job...");
-    await User.updateMany({}, { $inc: { paidLeaveBalance: 2.5 } });
-    console.log("✓ Leave accumulation completed");
-  } catch (error) {
-    console.error("✗ Leave accumulation failed:", error);
-  }
-});
 
 // --- 6. DATABASE & SERVER ---
 mongoose.connect(MONGODB_URI)
@@ -152,3 +134,13 @@ mongoose.connect(MONGODB_URI)
     server.listen(PORT, () => console.log(`✓ Server running on port ${PORT}`));
   })
   .catch(err => console.error("✗ MongoDB Connection Error:", err));
+
+// --- Socket Events ---
+io.on('connection', (socket) => {
+  console.log(`✓ Socket Connected: ${socket.userId}`);
+
+  // Join private room
+  socket.join(socket.userId.toString());
+
+  socket.on('disconnect', () => console.log('✗ Socket Disconnected'));
+});
