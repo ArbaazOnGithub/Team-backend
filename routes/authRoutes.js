@@ -6,15 +6,8 @@ const authController = require('../controllers/authController');
 // For modularity, let's re-configure a basic one or pass it.
 // Given the original structure, I'll define a simple upload middleware here or in a separate file.
 
+const { storage } = require('../config/cloudinary');
 const multer = require('multer');
-const path = require('path');
-const storage = multer.diskStorage({
-    destination: './uploads/',
-    filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
 const upload = multer({ storage }).single('profileImage');
 
 const auth = require('../middlewares/auth');

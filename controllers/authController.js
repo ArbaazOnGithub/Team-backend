@@ -11,7 +11,7 @@ exports.register = async (req, res) => {
     if (!/^[0-9]{10}$/.test(mobile)) return res.status(400).json({ error: 'Mobile must be 10 digits' });
     if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
-    const profileImage = req.file ? req.file.path.replace(/\\/g, "/") : "";
+    const profileImage = req.file ? req.file.path : "";
 
     try {
         const existingUser = await User.findOne({ $or: [{ mobile }, { email }] });
@@ -120,7 +120,7 @@ exports.updateProfile = async (req, res) => {
         if (!user) return res.status(404).json({ error: "User not found" });
 
         if (name) user.name = name;
-        if (req.file) user.profileImage = req.file.path.replace(/\\/g, "/");
+        if (req.file) user.profileImage = req.file.path;
 
         await user.save();
         res.json({ message: "Profile updated successfully", user: user.toJSON() });
