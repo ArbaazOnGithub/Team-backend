@@ -85,3 +85,42 @@ exports.updateUserLeaveBalance = async (req, res) => {
         res.status(500).json({ error: 'Failed to update leave balance' });
     }
 };
+
+// Send Announcement to all users
+exports.sendAnnouncement = async (req, res) => {
+    try {
+        const { message } = req.body;
+        if (!message || !message.trim()) {
+            return res.status(400).json({ error: 'Announcement message is required' });
+        }
+
+        const Notification = require('../models/Notification');
+        const io = req.app.get('socketio');
+
+        // Fetch all users to create individual notifications
+        const users = await User.find({}, '_id');
+
+        // Create notifications for all users
+        const notificationPromises = users.map(user =>
+            Notification.create({
+                user: user._id,
+                message: message.trim(),
+                type: 'admin_announcement'
+            })
+        );
+
+        await Promise.all(notificationPromises);
+
+        // Broadcast to all connected clients
+        io.emit('admin_announcement', {
+            message: message.trim(),
+            senderName: req.user.name,
+            createdAt: new Date()
+        });
+
+        res.json({ message: 'Announcement broadcasted successfully to all users!' });
+    } catch (error) {
+        console.error("Announcement error:", error);
+        res.status(500).json({ error: 'Failed to send announcement' });
+    }
+};
