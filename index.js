@@ -4,8 +4,6 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require("socket.io");
-const path = require('path');
-const fs = require('fs');
 const rateLimit = require('express-rate-limit');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
@@ -67,32 +65,6 @@ const limiter = rateLimit({
   max: 100
 });
 app.use('/api/', limiter);
-
-// ✅ FIX #3: Serve Static Files with Proper Headers (CRITICAL FIX)
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
-
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
-  setHeaders: (res, filePath) => {
-    // Set correct Content-Type based on file extension
-    const ext = path.extname(filePath).toLowerCase();
-
-    if (ext === '.png') {
-      res.set('Content-Type', 'image/png');
-    } else if (ext === '.jpg' || ext === '.jpeg') {
-      res.set('Content-Type', 'image/jpeg');
-    } else if (ext === '.gif') {
-      res.set('Content-Type', 'image/gif');
-    } else if (ext === '.webp') {
-      res.set('Content-Type', 'image/webp');
-    }
-
-    // CORS headers for images - FIXES CORB ERROR
-    res.set('Access-Control-Allow-Origin', '*');
-    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.set('Cache-Control', 'public, max-age=31536000');
-  }
-}));
 
 // --- 4. SOCKET.IO ---
 const io = new Server(server, {
