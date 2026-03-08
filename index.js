@@ -15,6 +15,8 @@ const authRoutes = require('./routes/authRoutes');
 const requestRoutes = require('./routes/requestRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const chatRoutes = require('./routes/chatRoutes');
+const Message = require('./models/Message');
 
 const app = express();
 const server = http.createServer(app);
@@ -97,6 +99,7 @@ app.use('/api', authRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/chat', chatRoutes);
 
 app.get('/', (req, res) => res.send("Backend is Running"));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
@@ -127,6 +130,21 @@ io.on('connection', (socket) => {
 
   // Join private room
   socket.join(socket.userId.toString());
+
+  // Chat logic
+  socket.on('send_message', async (content) => {
+    try {
+      let newMessage = new Message({
+        user: socket.userId,
+        content: content.trim()
+      });
+      await newMessage.save();
+      newMessage = await newMessage.populate('user', 'name profileImage role');
+      io.emit('receive_message', newMessage);
+    } catch (err) {
+      console.error("Chat error:", err);
+    }
+  });
 
   socket.on('disconnect', () => console.log('✗ Socket Disconnected'));
 });
