@@ -1,5 +1,7 @@
 const User = require('../models/User');
 const Request = require('../models/Request');
+const AuditLog = require('../models/AuditLog');
+const { logAction } = require('../utils/logger');
 
 // Get all users
 exports.getAllUsers = async (req, res) => {
@@ -24,6 +26,18 @@ exports.getRequestLogs = async (req, res) => {
     }
 };
 
+// Get all system audit logs
+exports.getSystemLogs = async (req, res) => {
+    try {
+        const logs = await AuditLog.find({})
+            .sort({ createdAt: -1 })
+            .populate('user', 'name email role');
+        res.json(logs);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch system logs' });
+    }
+};
+
 // Update user role
 exports.updateUserRole = async (req, res) => {
     try {
@@ -34,6 +48,8 @@ exports.updateUserRole = async (req, res) => {
 
         const user = await User.findByIdAndUpdate(userId, { role }, { new: true });
         if (!user) return res.status(404).json({ error: 'User not found' });
+
+        await logAction(req.userId, `Changed role of ${user.name} to ${role}`, 'admin', { targetUserId: userId, newRole: role });
 
         res.json({ message: 'User role updated successfully', user });
     } catch (error) {
@@ -47,6 +63,8 @@ exports.deleteUser = async (req, res) => {
         const { userId } = req.params;
         const user = await User.findByIdAndDelete(userId);
         if (!user) return res.status(404).json({ error: 'User not found' });
+
+        await logAction(req.userId, `Deleted user: ${user.name}`, 'admin', { deletedUserId: userId });
 
         res.json({ message: 'User deleted successfully' });
     } catch (error) {
@@ -79,6 +97,8 @@ exports.updateUserLeaveBalance = async (req, res) => {
 
         // Emit real-time notification
         io.to(userId.toString()).emit('notification_received', notification);
+
+        await logAction(req.userId, `Adjusted leave balance for ${user.name} by ${diff} days`, 'admin', { targetUserId: userId, diff, reason });
 
         res.json({ message: 'Leave balance updated successfully', user });
     } catch (error) {
@@ -117,6 +137,8 @@ exports.sendAnnouncement = async (req, res) => {
             senderName: req.user.name,
             createdAt: new Date()
         });
+
+        await logAction(req.userId, 'Sent a global announcement', 'admin', { content: message.trim() });
 
         res.json({ message: 'Announcement broadcasted successfully to all users!' });
     } catch (error) {

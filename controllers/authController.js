@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { logAction } = require('../utils/logger');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -27,6 +28,7 @@ exports.register = async (req, res) => {
         await newUser.save();
 
         const token = jwt.sign({ userId: newUser._id }, JWT_SECRET, { expiresIn: '7d' });
+        await logAction(newUser._id, 'Registered a new account', 'auth', { mobile: newUser.mobile });
         res.status(201).json({ user: newUser.toJSON(), token });
     } catch (dbErr) {
         console.error(dbErr);
@@ -46,6 +48,7 @@ exports.login = async (req, res) => {
         if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
 
         const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '7d' });
+        await logAction(user._id, 'Logged in to the system', 'auth');
         res.json({ user: user.toJSON(), token });
     } catch (err) {
         res.status(500).json({ error: 'Login error' });
@@ -106,6 +109,7 @@ exports.resetPassword = async (req, res) => {
         user.resetOtpExpire = undefined;
         await user.save();
 
+        await logAction(user._id, 'Reset password via OTP', 'auth');
         res.json({ message: "Password updated successfully! Please login." });
     } catch (err) {
         console.error(err);

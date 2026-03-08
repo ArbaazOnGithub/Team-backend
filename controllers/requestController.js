@@ -1,4 +1,5 @@
 const Request = require('../models/Request');
+const { logAction } = require('../utils/logger');
 
 exports.createRequest = async (req, res) => {
     const { query, requestType, startDate, endDate, daysCount } = req.body;
@@ -21,6 +22,7 @@ exports.createRequest = async (req, res) => {
         await newReq.save();
         newReq = await newReq.populate('user', 'name profileImage role');
         io.emit('new_request', newReq);
+        await logAction(req.userId, 'Raised a new ticket', 'request', { requestNo: newReq.requestNo });
         res.status(201).json(newReq);
     } catch (err) { res.status(500).json({ error: 'Error' }); }
 };
@@ -86,6 +88,8 @@ exports.updateRequestStatus = async (req, res) => {
         io.to(updated.user._id.toString()).emit('notification_received', notification);
         io.emit('status_update', updated);
 
+        await logAction(req.userId, `Updated request #${updated.requestNo} status to ${status}`, 'request', { requestNo: updated.requestNo, status });
+
         res.json(updated);
     } catch (err) { res.status(500).json({ error: 'Error' }); }
 };
@@ -98,6 +102,7 @@ exports.deleteRequest = async (req, res) => {
         if (req.user.role !== 'admin' && request.user.toString() !== req.userId.toString()) return res.status(403).json({ error: 'Unauthorized' });
         await Request.findByIdAndDelete(req.params.id);
         io.emit('request_deleted', { id: req.params.id });
+        await logAction(req.userId, `Deleted request #${request.requestNo}`, 'request', { requestNo: request.requestNo });
         res.json({ message: 'Deleted' });
     } catch (err) { res.status(500).json({ error: 'Error' }); }
 };

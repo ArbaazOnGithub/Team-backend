@@ -1,5 +1,6 @@
 const Message = require('../models/Message');
 const User = require('../models/User');
+const { logAction } = require('../utils/logger');
 
 exports.getMessages = async (req, res) => {
     try {
@@ -44,8 +45,33 @@ exports.togglePin = async (req, res) => {
         const io = req.app.get('socketio');
         io.emit('message_pinned', updated);
 
+        await logAction(req.userId, `${isPinned ? 'Pinned' : 'Unpinned'} a message`, 'chat', { messageId: req.params.id });
+
         res.json(updated);
     } catch (err) {
         res.status(500).json({ error: 'Failed to toggle pin' });
+    }
+};
+
+exports.deleteMessage = async (req, res) => {
+    try {
+        const message = await Message.findById(req.params.id);
+        if (!message) return res.status(404).json({ error: 'Message not found' });
+
+        // Authorization: Admin or the person who sent the message
+        if (req.user.role !== 'admin' && message.user.toString() !== req.userId.toString()) {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+
+        await Message.findByIdAndDelete(req.params.id);
+
+        const io = req.app.get('socketio');
+        io.emit('message_deleted', req.params.id);
+
+        await logAction(req.userId, 'Deleted a chat message', 'chat', { content: message.content.substring(0, 50) });
+
+        res.json({ message: 'Message deleted' });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to delete message' });
     }
 };

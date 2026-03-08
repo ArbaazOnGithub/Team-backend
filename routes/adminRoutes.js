@@ -8,6 +8,7 @@ const admin = require('../middlewares/admin');
 router.use(auth, admin);
 
 router.get('/users', adminController.getAllUsers);
+router.get('/system-logs', adminController.getSystemLogs);
 router.get('/requests/logs', adminController.getRequestLogs);
 router.put('/users/role', adminController.updateUserRole);
 router.put('/users/leave-balance', adminController.updateUserLeaveBalance);
