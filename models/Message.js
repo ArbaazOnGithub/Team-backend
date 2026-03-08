@@ -5,6 +5,7 @@ const MessageSchema = new mongoose.Schema({
     content: { type: String, required: true, trim: true },
     isPinned: { type: Boolean, default: false },
     pinnedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     createdAt: { type: Date, default: Date.now }
 });
 

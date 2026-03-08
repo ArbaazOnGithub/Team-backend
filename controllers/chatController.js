@@ -1,4 +1,5 @@
 const Message = require('../models/Message');
+const User = require('../models/User');
 
 exports.getMessages = async (req, res) => {
     try {
@@ -6,12 +7,22 @@ exports.getMessages = async (req, res) => {
             .sort({ createdAt: -1 })
             .limit(100)
             .populate('user', 'name profileImage role')
-            .populate('pinnedBy', 'name');
+            .populate('pinnedBy', 'name')
+            .populate('readBy', 'name profileImage');
 
         // Return messages in chronological order for the UI
         res.json(messages.reverse());
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch messages' });
+    }
+};
+
+exports.getUsers = async (req, res) => {
+    try {
+        const users = await User.find({}, 'name profileImage role');
+        res.json(users);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch users' });
     }
 };
 

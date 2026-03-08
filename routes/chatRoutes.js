@@ -6,6 +6,7 @@ const authMiddleware = require('../middlewares/auth');
 router.use(authMiddleware);
 
 router.get('/', chatController.getMessages);
+router.get('/users', chatController.getUsers);
 router.patch('/pin/:id', chatController.togglePin);
 
 module.exports = router;

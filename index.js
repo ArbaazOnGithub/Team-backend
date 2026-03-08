@@ -146,5 +146,19 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('mark_read', async (messageId) => {
+    try {
+      const msg = await Message.findById(messageId);
+      if (msg && !msg.readBy.includes(socket.userId)) {
+        msg.readBy.push(socket.userId);
+        await msg.save();
+        const updatedMsg = await msg.populate('readBy', 'name profileImage');
+        io.emit('message_read_update', { messageId: msg._id, readBy: updatedMsg.readBy });
+      }
+    } catch (err) {
+      console.error("Read mark error:", err);
+    }
+  });
+
   socket.on('disconnect', () => console.log('✗ Socket Disconnected'));
 });
