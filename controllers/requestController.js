@@ -6,25 +6,48 @@ exports.createRequest = async (req, res) => {
     const io = req.app.get('socketio');
 
     if (!query || !query.trim()) return res.status(400).json({ error: 'Query empty' });
-    try {
-        const lastReq = await Request.findOne().sort({ requestNo: -1 });
-        const requestNo = lastReq && lastReq.requestNo ? lastReq.requestNo + 1 : 101;
 
-        let newReq = new Request({
-            user: req.userId,
-            query: query.trim(),
-            requestNo,
-            requestType: requestType || 'General',
-            startDate,
-            endDate,
-            daysCount
-        });
-        await newReq.save();
-        newReq = await newReq.populate('user', 'name profileImage role');
-        io.emit('new_request', newReq);
-        await logAction(req.userId, 'Raised a new ticket', 'request', { requestNo: newReq.requestNo });
-        res.status(201).json(newReq);
-    } catch (err) { res.status(500).json({ error: 'Error' }); }
+    let retries = 3;
+    while (retries > 0) {
+        try {
+            const lastReq = await Request.findOne().sort({ requestNo: -1 });
+            const requestNo = lastReq && lastReq.requestNo ? lastReq.requestNo + 1 : 101;
+
+            let newReq = new Request({
+                user: req.userId,
+                query: query.trim(),
+                requestNo,
+                requestType: requestType || 'General',
+                startDate,
+                endDate,
+                daysCount
+            });
+            await newReq.save();
+            newReq = await newReq.populate('user', 'name profileImage role');
+            io.emit('new_request', newReq);
+            await logAction(req.userId, 'Raised a new ticket', 'request', { requestNo: newReq.requestNo });
+            return res.status(201).json(newReq);
+        } catch (err) {
+            // Handle duplicate key error for requestNo due to race condition
+            if (err.code === 11000 && err.keyPattern && err.keyPattern.requestNo) {
+                retries -= 1;
+                if (retries === 0) {
+                    console.error('Max retries reached for createRequest:', err);
+                    return res.status(500).json({ error: 'System is busy processing requests. Please try again.' });
+                }
+                // Wait briefly before retrying
+                await new Promise(resolve => setTimeout(resolve, 50));
+                continue;
+            }
+            // Handle validation errors (e.g., query too long)
+            if (err.name === 'ValidationError') {
+                const messages = Object.values(err.errors).map(val => val.message);
+                return res.status(400).json({ error: messages.join(', ') });
+            }
+            console.error('Error creating request:', err);
+            return res.status(500).json({ error: 'Error processing your request' });
+        }
+    }
 };
 
 exports.getRequests = async (req, res) => {
