@@ -6,7 +6,9 @@ const { logAction } = require('../utils/logger');
 // Get all users
 exports.getAllUsers = async (req, res) => {
     try {
-        const users = await User.find({}).sort({ createdAt: -1 });
+        // If the requester is an admin (but not a superadmin), hide the superadmin from the list
+        const query = req.user.role === 'admin' ? { role: { $ne: 'superadmin' } } : {};
+        const users = await User.find(query).sort({ createdAt: -1 });
         res.json(users);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch users' });
@@ -26,7 +28,20 @@ exports.getRequestLogs = async (req, res) => {
     }
 };
 
-// Get all system audit logs
+// Get all system error logs (Super Admin Only)
+exports.getSystemErrorLogs = async (req, res) => {
+    try {
+        const SystemErrorLog = require('../models/SystemErrorLog');
+        const logs = await SystemErrorLog.find({})
+            .sort({ createdAt: -1 })
+            .populate('user', 'name email role');
+        res.json(logs);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch system error logs' });
+    }
+};
+
+// Get all request logs for admin
 exports.getSystemLogs = async (req, res) => {
     try {
         const logs = await AuditLog.find({})
@@ -41,9 +56,15 @@ exports.getSystemLogs = async (req, res) => {
 // Update user role
 exports.updateUserRole = async (req, res) => {
     try {
+        // Only superadmins can change roles
+        if (req.user.role !== 'superadmin') {
+            return res.status(403).json({ error: 'Access denied. Only Super Admins can modify roles.' });
+        }
+
         const { userId, role } = req.body;
+        // Cannot assign superadmin role to anyone else via this endpoint
         if (!['user', 'admin'].includes(role)) {
-            return res.status(400).json({ error: 'Invalid role' });
+            return res.status(400).json({ error: 'Invalid role assignment' });
         }
 
         const user = await User.findByIdAndUpdate(userId, { role }, { new: true });

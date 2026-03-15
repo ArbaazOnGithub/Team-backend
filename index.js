@@ -9,6 +9,7 @@ const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 const cron = require('node-cron');
 const User = require('./models/User');
+const errorHandler = require('./middlewares/errorHandler');
 
 // Route Imports
 const authRoutes = require('./routes/authRoutes');
@@ -104,6 +105,8 @@ app.use('/api/chat', chatRoutes);
 app.get('/', (req, res) => res.send("Backend is Running"));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
+app.use(errorHandler);
+
 // --- 7. CRON JOBS ---
 // Increment paidLeaveBalance by 2.5 on the 1st of every month at midnight
 cron.schedule('0 0 1 * *', async () => {
@@ -118,8 +121,34 @@ cron.schedule('0 0 1 * *', async () => {
 
 // --- 6. DATABASE & SERVER ---
 mongoose.connect(MONGODB_URI)
-  .then(() => {
+  .then(async () => {
     console.log("✓ MongoDB Connected");
+
+    // --- Super Admin Auto-Promotion ---
+    try {
+      const superMobile = '9399285780';
+      // 1. Force the designated user to be superadmin
+      const superUser = await User.findOneAndUpdate(
+        { mobile: superMobile },
+        { role: 'superadmin' },
+        { new: true }
+      );
+      if (superUser) {
+        console.log(`✓ Enforced Super Admin role for ${superMobile}`);
+      }
+
+      // 2. Force downgrade any impostor superadmins back to admin
+      const impostors = await User.updateMany(
+        { role: 'superadmin', mobile: { $ne: superMobile } },
+        { role: 'admin' }
+      );
+      if (impostors.modifiedCount > 0) {
+        console.warn(`! Downgraded ${impostors.modifiedCount} impostor superadmin(s)`);
+      }
+    } catch (err) {
+      console.error("✗ Failed to enforce Super Admin role:", err.message);
+    }
+
     server.listen(PORT, () => console.log(`✓ Server running on port ${PORT}`));
   })
   .catch(err => console.error("✗ MongoDB Connection Error:", err));

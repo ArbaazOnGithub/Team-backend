@@ -7,7 +7,7 @@ const UserSchema = new mongoose.Schema({
     password: { type: String, required: true },
     name: { type: String, required: true, trim: true },
     profileImage: { type: String, default: '' },
-    role: { type: String, enum: ['user', 'admin'], default: 'user' },
+    role: { type: String, enum: ['user', 'admin', 'superadmin'], default: 'user' },
     paidLeaveBalance: { type: Number, default: 0 },
 
     // Fields for Password Reset
@@ -15,6 +15,27 @@ const UserSchema = new mongoose.Schema({
     resetOtpExpire: { type: Date },
 
     createdAt: { type: Date, default: Date.now }
+});
+
+// Enforce that only '9399285780' can be a superadmin
+UserSchema.pre('save', function (next) {
+    if (this.role === 'superadmin' && this.mobile !== '9399285780') {
+        const err = new Error("Only the developer account can be a superadmin.");
+        return next(err);
+    }
+    next();
+});
+
+UserSchema.pre('findOneAndUpdate', function (next) {
+    const update = this.getUpdate();
+    if (update && update.role === 'superadmin') {
+        const query = this.getQuery();
+        if (query.mobile !== '9399285780') {
+            const err = new Error("Only the developer account can be a superadmin.");
+            return next(err);
+        }
+    }
+    next();
 });
 
 UserSchema.methods.toJSON = function () {
