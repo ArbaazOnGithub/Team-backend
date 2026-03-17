@@ -54,7 +54,7 @@ exports.getRequests = async (req, res) => {
     try {
         const { status, limit = 50, page = 1 } = req.query;
         let queryFilter = status ? { status } : {};
-        if (req.user.role !== 'admin') queryFilter.user = req.userId;
+        if (!['admin', 'superadmin'].includes(req.user.role)) queryFilter.user = req.userId;
         const skip = (page - 1) * limit;
         const requests = await Request.find(queryFilter)
             .sort({ createdAt: -1 })
@@ -122,7 +122,7 @@ exports.deleteRequest = async (req, res) => {
     try {
         const request = await Request.findById(req.params.id);
         if (!request) return res.status(404).json({ error: 'Not found' });
-        if (req.user.role !== 'admin' && request.user.toString() !== req.userId.toString()) return res.status(403).json({ error: 'Unauthorized' });
+        if (request.user.toString() !== req.userId.toString() && !['admin', 'superadmin'].includes(req.user.role)) return res.status(403).json({ error: 'Unauthorized' });
         await Request.findByIdAndDelete(req.params.id);
         io.emit('request_deleted', { id: req.params.id });
         await logAction(req.userId, `Deleted request #${request.requestNo}`, 'request', { requestNo: request.requestNo });
@@ -133,7 +133,7 @@ exports.deleteRequest = async (req, res) => {
 exports.getStats = async (req, res) => {
     try {
         let queryFilter = {};
-        if (req.user.role !== 'admin') queryFilter.user = req.userId;
+        if (!['admin', 'superadmin'].includes(req.user.role)) queryFilter.user = req.userId;
         const stats = await Request.aggregate([{ $match: queryFilter }, { $group: { _id: '$status', count: { $sum: 1 } } }]);
         const formattedStats = { Pending: 0, Approved: 0, Resolved: 0, Cancelled: 0 };
         stats.forEach(stat => { formattedStats[stat._id] = stat.count; });
