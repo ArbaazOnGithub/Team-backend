@@ -18,24 +18,20 @@ const UserSchema = new mongoose.Schema({
 });
 
 // Enforce that only '9399285780' can be a superadmin
-UserSchema.pre('save', function (next) {
+UserSchema.pre('save', async function () {
     if (this.role === 'superadmin' && this.mobile !== '9399285780') {
-        const err = new Error("Only the developer account can be a superadmin.");
-        return next(err);
+        throw new Error("Only the developer account can be a superadmin.");
     }
-    next();
 });
 
-UserSchema.pre('findOneAndUpdate', function (next) {
+UserSchema.pre('findOneAndUpdate', async function () {
     const update = this.getUpdate();
     if (update && update.role === 'superadmin') {
         const query = this.getQuery();
         if (query.mobile !== '9399285780') {
-            const err = new Error("Only the developer account can be a superadmin.");
-            return next(err);
+            throw new Error("Only the developer account can be a superadmin.");
         }
     }
-    next();
 });
 
 UserSchema.methods.toJSON = function () {
