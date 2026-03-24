@@ -31,12 +31,13 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 // --- 2. BREVO API EMAIL SENDER ---
 const https = require('https');
 
-const sendBrevoEmail = async ({ to, subject, htmlContent }) => {
+const sendBrevoEmail = async ({ to, subject, htmlContent, textContent }) => {
   const data = JSON.stringify({
     sender: { email: (process.env.EMAIL_USER || "mohd.arbaaz.job@gmail.com").trim(), name: "Team App" },
     to: [{ email: to }],
     subject: subject,
-    htmlContent: htmlContent
+    htmlContent: htmlContent || textContent, // Use text as fallback for HTML
+    textContent: textContent
   });
 
   const options = {
@@ -71,10 +72,10 @@ const sendBrevoEmail = async ({ to, subject, htmlContent }) => {
   });
 };
 
-// SIMULATE Nodemailer interface to avoid breaking existing controllers
+// SIMULATE Nodemailer interface
 const transporterSim = {
-  sendMail: async ({ to, subject, html }) => {
-    return sendBrevoEmail({ to, subject, htmlContent: html });
+  sendMail: async ({ to, subject, html, text }) => {
+    return sendBrevoEmail({ to, subject, htmlContent: html, textContent: text });
   }
 };
 app.set('transporter', transporterSim);
