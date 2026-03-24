@@ -17,4 +17,9 @@ router.put('/users/leave-balance', adminController.updateUserLeaveBalance);
 router.post('/announce', adminController.sendAnnouncement);
 router.delete('/users/:userId', adminController.deleteUser);
 
+// Superadmin Company Routes
+router.get('/superadmin/companies', superadmin, adminController.getAllCompanies);
+router.post('/superadmin/companies', superadmin, adminController.createCompany);
+router.delete('/superadmin/companies/:id', superadmin, adminController.deleteCompany);
+
 module.exports = router;

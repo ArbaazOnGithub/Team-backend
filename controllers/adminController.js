@@ -166,9 +166,106 @@ exports.sendAnnouncement = async (req, res) => {
 
         await logAction(req.userId, 'Sent a global announcement', 'admin', { content: message.trim() });
 
+
         res.json({ message: 'Announcement broadcasted successfully to all users!' });
     } catch (error) {
         console.error("Announcement error:", error);
         res.status(500).json({ error: 'Failed to send announcement' });
+    }
+};
+
+// --- SUPER ADMIN: COMPANY MANAGEMENT ---
+
+exports.getAllCompanies = async (req, res) => {
+    try {
+        if (req.user.role !== 'superadmin') {
+            return res.status(403).json({ error: 'Access denied. Super Admins only.' });
+        }
+        
+        const Company = require('../models/Company');
+        const companies = await Company.find().sort({ createdAt: -1 });
+        
+        // Aggregate user counts per company
+        const userCounts = await User.aggregate([
+            { $group: { _id: "$company", count: { $sum: 1 } } }
+        ]);
+        
+        const companiesWithStats = companies.map(comp => {
+            const stat = userCounts.find(uc => uc._id.toString() === comp._id.toString());
+            return {
+                ...comp.toJSON(),
+                userCount: stat ? stat.count : 0
+            };
+        });
+
+        res.json(companiesWithStats);
+    } catch (error) {
+        console.error("Error fetching companies:", error);
+        res.status(500).json({ error: 'Failed to fetch companies' });
+    }
+};
+
+exports.createCompany = async (req, res) => {
+    try {
+        if (req.user.role !== 'superadmin') {
+            return res.status(403).json({ error: 'Access denied. Super Admins only.' });
+        }
+
+        const { name, slug } = req.body;
+        if (!name || !slug) return res.status(400).json({ error: 'Name and slug are required' });
+
+        const Company = require('../models/Company');
+        const normalizedSlug = slug.toLowerCase().trim();
+
+        const existing = await Company.findOne({ slug: normalizedSlug });
+        if (existing) return res.status(400).json({ error: 'A company with this slug already exists' });
+
+        const company = await Company.create({ name, slug: normalizedSlug });
+        await logAction(req.userId, `Created new company: ${name} (${normalizedSlug})`, 'admin', { newCompanyId: company._id });
+
+        res.status(201).json(company);
+    } catch (error) {
+        console.error("Error creating company:", error);
+        res.status(500).json({ error: 'Failed to create company' });
+    }
+};
+
+exports.deleteCompany = async (req, res) => {
+    try {
+        if (req.user.role !== 'superadmin') {
+            return res.status(403).json({ error: 'Access denied. Super Admins only.' });
+        }
+
+        const companyId = req.params.id;
+        const Company = require('../models/Company');
+
+        const company = await Company.findById(companyId);
+        if (!company) return res.status(404).json({ error: 'Company not found' });
+
+        if (company.slug === 'turbo-net') {
+            return res.status(400).json({ error: 'The root Turbo Net company cannot be deleted.' });
+        }
+
+        // --- CASCADING DELETE ---
+        const Message = require('../models/Message');
+        const Notification = require('../models/Notification');
+        const Request = require('../models/Request');
+        const SystemErrorLog = require('../models/SystemErrorLog');
+
+        await Message.deleteMany({ company: companyId });
+        await Notification.deleteMany({ company: companyId });
+        await Request.deleteMany({ company: companyId });
+        await AuditLog.deleteMany({ company: companyId });
+        await SystemErrorLog.deleteMany({ company: companyId });
+        await User.deleteMany({ company: companyId });
+
+        await Company.findByIdAndDelete(companyId);
+
+        await logAction(req.userId, `Deleted company: ${company.name} and ALL its data`, 'admin', { deletedCompanySlug: company.slug });
+
+        res.json({ message: 'Company and all associated data successfully deleted.' });
+    } catch (error) {
+        console.error("Error deleting company:", error);
+        res.status(500).json({ error: 'Failed to delete company' });
     }
 };
