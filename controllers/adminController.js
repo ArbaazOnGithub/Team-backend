@@ -242,8 +242,8 @@ exports.deleteCompany = async (req, res) => {
         const company = await Company.findById(companyId);
         if (!company) return res.status(404).json({ error: 'Company not found' });
 
-        if (company.slug === 'turbo-net') {
-            return res.status(400).json({ error: 'The root Turbo Net company cannot be deleted.' });
+        if (company.slug === 'n1solution') {
+            return res.status(400).json({ error: 'The root N1Solution company cannot be deleted.' });
         }
 
         // --- CASCADING DELETE ---
