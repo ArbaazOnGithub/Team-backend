@@ -13,7 +13,15 @@ const authMiddleware = async (req, res, next) => {
 
         req.user = user;
         req.userId = user._id;
-        req.userCompany = user.company; // Essential for multi-tenancy filtering
+        
+        // --- GLOBAL CONTEXT SWITCHER FOR SUPERADMIN ---
+        const contextCompanyId = req.header('x-company-context');
+        if (contextCompanyId && user.role === 'superadmin') {
+            req.userCompany = contextCompanyId;
+        } else {
+            req.userCompany = user.company; // Default multi-tenancy filtering
+        }
+        
         next();
     } catch (error) {
         res.status(401).json({ error: 'Invalid or expired token' });
