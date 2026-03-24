@@ -30,11 +30,28 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 
 // --- 2. TRANSPORTER ---
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true, // Use SSL
+  pool: true,
+  maxConnections: 5,
+  maxMessages: 100,
+  connectionTimeout: 10000, // 10s
+  greetingTimeout: 10000,
+  socketTimeout: 20000,
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+    user: (process.env.EMAIL_USER || "").trim(),
+    pass: (process.env.EMAIL_PASS || "").trim()
   }
+});
+
+// Verify SMTP connection on startup
+transporter.verify((error, success) => {
+    if (error) {
+        console.error("❌ SMTP Verification Failed:", error.message);
+    } else {
+        console.log("✓ SMTP Transporter is ready");
+    }
 });
 app.set('transporter', transporter);
 
