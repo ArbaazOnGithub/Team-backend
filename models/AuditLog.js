@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const AuditLogSchema = new mongoose.Schema({
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    company: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', required: true },
     action: { type: String, required: true },
     details: { type: mongoose.Schema.Types.Mixed },
     type: { type: String, enum: ['auth', 'chat', 'request', 'admin', 'system'], required: true },

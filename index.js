@@ -17,6 +17,7 @@ const requestRoutes = require('./routes/requestRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const companyRoutes = require('./routes/companyRoutes');
 const Message = require('./models/Message');
 
 const app = express();
@@ -85,12 +86,16 @@ const io = new Server(server, {
 });
 app.set('socketio', io);
 
-io.use((socket, next) => {
+io.use(async (socket, next) => {
   const token = socket.handshake.auth.token;
   if (!token) return next(new Error('Authentication error'));
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    socket.userId = decoded.userId;
+    const user = await User.findById(decoded.userId);
+    if (!user) return next(new Error('Authentication error'));
+    
+    socket.userId = user._id;
+    socket.userCompany = user.company; // Multi-tenancy context
     next();
   } catch (err) {
     next(new Error('Authentication error'));
@@ -98,6 +103,7 @@ io.use((socket, next) => {
 });
 
 app.use('/api', authRoutes);
+app.use('/api/companies', companyRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
@@ -158,19 +164,23 @@ mongoose.connect(MONGODB_URI)
 io.on('connection', (socket) => {
   console.log(`✓ Socket Connected: ${socket.userId}`);
 
-  // Join private room
+  // Join private room and company room
   socket.join(socket.userId.toString());
+  if (socket.userCompany) {
+      socket.join(socket.userCompany.toString());
+  }
 
   // Chat logic
   socket.on('send_message', async (content) => {
     try {
       let newMessage = new Message({
         user: socket.userId,
+        company: socket.userCompany,
         content: content.trim()
       });
       await newMessage.save();
       newMessage = await newMessage.populate('user', 'name profileImage role');
-      io.emit('receive_message', newMessage);
+      io.to(socket.userCompany.toString()).emit('receive_message', newMessage);
     } catch (err) {
       console.error("Chat error:", err);
     }
@@ -183,7 +193,7 @@ io.on('connection', (socket) => {
         msg.readBy.push(socket.userId);
         await msg.save();
         const updatedMsg = await msg.populate('readBy', 'name profileImage');
-        io.emit('message_read_update', { messageId: msg._id, readBy: updatedMsg.readBy });
+        io.to(socket.userCompany.toString()).emit('message_read_update', { messageId: msg._id, readBy: updatedMsg.readBy });
       }
     } catch (err) {
       console.error("Read mark error:", err);

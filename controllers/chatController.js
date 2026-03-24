@@ -4,7 +4,7 @@ const { logAction } = require('../utils/logger');
 
 exports.getMessages = async (req, res) => {
     try {
-        const messages = await Message.find()
+        const messages = await Message.find({ company: req.userCompany })
             .sort({ createdAt: -1 })
             .limit(100)
             .populate('user', 'name profileImage role')
@@ -20,7 +20,7 @@ exports.getMessages = async (req, res) => {
 
 exports.getUsers = async (req, res) => {
     try {
-        const users = await User.find({}, 'name profileImage role');
+        const users = await User.find({ company: req.userCompany }, 'name profileImage role');
         res.json(users);
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch users' });
@@ -29,12 +29,12 @@ exports.getUsers = async (req, res) => {
 
 exports.togglePin = async (req, res) => {
     try {
-        const message = await Message.findById(req.params.id);
+        const message = await Message.findOne({ _id: req.params.id, company: req.userCompany });
         if (!message) return res.status(404).json({ error: 'Message not found' });
 
         const isPinned = !message.isPinned;
-        const updated = await Message.findByIdAndUpdate(
-            req.params.id,
+        const updated = await Message.findOneAndUpdate(
+            { _id: req.params.id, company: req.userCompany },
             {
                 isPinned,
                 pinnedBy: isPinned ? req.userId : null
@@ -55,7 +55,7 @@ exports.togglePin = async (req, res) => {
 
 exports.deleteMessage = async (req, res) => {
     try {
-        const message = await Message.findById(req.params.id);
+        const message = await Message.findOne({ _id: req.params.id, company: req.userCompany });
         if (!message) return res.status(404).json({ error: 'Message not found' });
 
         // Authorization: Admin or the person who sent the message
@@ -63,7 +63,7 @@ exports.deleteMessage = async (req, res) => {
             return res.status(403).json({ error: 'Not authorized' });
         }
 
-        await Message.findByIdAndDelete(req.params.id);
+        await Message.findOneAndDelete({ _id: req.params.id, company: req.userCompany });
 
         const io = req.app.get('socketio');
         io.emit('message_deleted', req.params.id);

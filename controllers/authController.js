@@ -6,25 +6,25 @@ const { logAction } = require('../utils/logger');
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 exports.register = async (req, res) => {
-    const { mobile, name, password, email } = req.body;
+    const { mobile, name, password, email, companyId } = req.body;
 
-    if (!mobile || !name || !password || !email) return res.status(400).json({ error: 'All fields are required' });
+    if (!mobile || !name || !password || !email || !companyId) return res.status(400).json({ error: 'All fields, including company, are required' });
     if (!/^[0-9]{10}$/.test(mobile)) return res.status(400).json({ error: 'Mobile must be 10 digits' });
     if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
     const profileImage = req.file ? req.file.path : "";
 
     try {
-        const existingUser = await User.findOne({ $or: [{ mobile }, { email }] });
-        if (existingUser) return res.status(400).json({ error: "Mobile or Email already registered" });
+        const existingUser = await User.findOne({ company: companyId, $or: [{ mobile }, { email }] });
+        if (existingUser) return res.status(400).json({ error: "Mobile or Email already registered in this company" });
 
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        const userCount = await User.countDocuments();
+        const userCount = await User.countDocuments({ company: companyId });
         const role = userCount === 0 ? 'admin' : 'user';
 
-        const newUser = new User({ mobile, email, name, password: hashedPassword, profileImage, role });
+        const newUser = new User({ mobile, email, name, password: hashedPassword, profileImage, role, company: companyId });
         await newUser.save();
 
         const token = jwt.sign({ userId: newUser._id }, JWT_SECRET, { expiresIn: '7d' });
@@ -37,12 +37,12 @@ exports.register = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-    const { mobile, password } = req.body;
-    if (!mobile || !password) return res.status(400).json({ error: 'Mobile and password required' });
+    const { mobile, password, companyId } = req.body;
+    if (!mobile || !password || !companyId) return res.status(400).json({ error: 'Mobile, password, and company required' });
 
     try {
-        const user = await User.findOne({ mobile });
-        if (!user) return res.status(404).json({ error: "User not found" });
+        const user = await User.findOne({ mobile, company: companyId });
+        if (!user) return res.status(404).json({ error: "User not found in this company" });
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
@@ -65,13 +65,13 @@ exports.login = async (req, res) => {
 };
 
 exports.forgotPassword = async (req, res) => {
-    const { email } = req.body;
+    const { email, companyId } = req.body;
     const transporter = req.app.get('transporter');
 
-    if (!email) return res.status(400).json({ error: "Email is required" });
+    if (!email || !companyId) return res.status(400).json({ error: "Email and company are required" });
 
     try {
-        const user = await User.findOne({ email: email.toLowerCase() });
+        const user = await User.findOne({ email: email.toLowerCase(), company: companyId });
         if (!user) return res.status(404).json({ error: "User does not exist please register first" });
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();

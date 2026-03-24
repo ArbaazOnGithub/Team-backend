@@ -8,7 +8,7 @@ router.use(auth);
 // Get user's notifications
 router.get('/', async (req, res) => {
     try {
-        const notifications = await Notification.find({ user: req.userId })
+        const notifications = await Notification.find({ user: req.userId, company: req.userCompany })
             .sort({ createdAt: -1 })
             .limit(20);
         res.json(notifications);
@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
 router.put('/mark-read', async (req, res) => {
     try {
         await Notification.updateMany(
-            { user: req.userId, isRead: false },
+            { user: req.userId, isRead: false, company: req.userCompany },
             { isRead: true }
         );
         res.json({ message: 'Notifications marked as read' });

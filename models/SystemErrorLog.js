@@ -6,6 +6,7 @@ const SystemErrorLogSchema = new mongoose.Schema({
     endpoint: { type: String },
     method: { type: String },
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    company: { type: mongoose.Schema.Types.ObjectId, ref: 'Company' },
     createdAt: { type: Date, default: Date.now }
 });
 

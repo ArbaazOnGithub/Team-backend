@@ -7,7 +7,8 @@ const { logAction } = require('../utils/logger');
 exports.getAllUsers = async (req, res) => {
     try {
         // If the requester is an admin (but not a superadmin), hide the superadmin from the list
-        const query = req.user.role === 'admin' ? { role: { $ne: 'superadmin' } } : {};
+        const query = { company: req.userCompany };
+        if (req.user.role === 'admin') query.role = { $ne: 'superadmin' };
         const users = await User.find(query).sort({ createdAt: -1 });
         res.json(users);
     } catch (error) {
@@ -18,7 +19,7 @@ exports.getAllUsers = async (req, res) => {
 // Get all request logs for admin
 exports.getRequestLogs = async (req, res) => {
     try {
-        const logs = await Request.find({})
+        const logs = await Request.find({ company: req.userCompany })
             .sort({ createdAt: -1 })
             .populate('user', 'name email mobile')
             .populate('actionBy', 'name');
@@ -32,7 +33,7 @@ exports.getRequestLogs = async (req, res) => {
 exports.getSystemErrorLogs = async (req, res) => {
     try {
         const SystemErrorLog = require('../models/SystemErrorLog');
-        const logs = await SystemErrorLog.find({})
+        const logs = await SystemErrorLog.find({ company: req.userCompany })
             .sort({ createdAt: -1 })
             .populate('user', 'name email role');
         res.json(logs);
@@ -44,7 +45,7 @@ exports.getSystemErrorLogs = async (req, res) => {
 // Get all request logs for admin
 exports.getSystemLogs = async (req, res) => {
     try {
-        const logs = await AuditLog.find({})
+        const logs = await AuditLog.find({ company: req.userCompany })
             .sort({ createdAt: -1 })
             .populate('user', 'name email role');
         res.json(logs);
@@ -67,7 +68,11 @@ exports.updateUserRole = async (req, res) => {
             return res.status(400).json({ error: 'Invalid role assignment' });
         }
 
-        const user = await User.findByIdAndUpdate(userId, { role }, { new: true });
+        const user = await User.findOneAndUpdate(
+            { _id: userId, company: req.userCompany },
+            { role },
+            { new: true }
+        );
         if (!user) return res.status(404).json({ error: 'User not found' });
 
         await logAction(req.userId, `Changed role of ${user.name} to ${role}`, 'admin', { targetUserId: userId, newRole: role });
@@ -82,7 +87,7 @@ exports.updateUserRole = async (req, res) => {
 exports.deleteUser = async (req, res) => {
     try {
         const { userId } = req.params;
-        const user = await User.findByIdAndDelete(userId);
+        const user = await User.findOneAndDelete({ _id: userId, company: req.userCompany });
         if (!user) return res.status(404).json({ error: 'User not found' });
 
         await logAction(req.userId, `Deleted user: ${user.name}`, 'admin', { deletedUserId: userId });
@@ -99,7 +104,7 @@ exports.updateUserLeaveBalance = async (req, res) => {
         const Notification = require('../models/Notification');
         const io = req.app.get('socketio');
 
-        const user = await User.findById(userId);
+        const user = await User.findOne({ _id: userId, company: req.userCompany });
         if (!user) return res.status(404).json({ error: 'User not found' });
 
         const oldBalance = user.paidLeaveBalance || 0;
@@ -139,7 +144,7 @@ exports.sendAnnouncement = async (req, res) => {
         const io = req.app.get('socketio');
 
         // Fetch all users to create individual notifications
-        const users = await User.find({}, '_id');
+        const users = await User.find({ company: req.userCompany }, '_id');
 
         // Create notifications for all users
         const notificationPromises = users.map(user =>
@@ -152,8 +157,8 @@ exports.sendAnnouncement = async (req, res) => {
 
         await Promise.all(notificationPromises);
 
-        // Broadcast to all connected clients
-        io.emit('admin_announcement', {
+        // Broadcast to all connected clients in the company
+        io.to(req.userCompany.toString()).emit('admin_announcement', {
             message: message.trim(),
             senderName: req.user.name,
             createdAt: new Date()

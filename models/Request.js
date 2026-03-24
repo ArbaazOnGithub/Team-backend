@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
 
 const RequestSchema = new mongoose.Schema({
-    requestNo: { type: Number, unique: true },
+    requestNo: { type: Number },
+    company: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', required: true },
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     query: { type: String, required: true, trim: true, maxlength: 1000 },
     requestType: { type: String, enum: ['General', 'Leave'], default: 'General' },

@@ -10,11 +10,12 @@ exports.createRequest = async (req, res) => {
     let retries = 3;
     while (retries > 0) {
         try {
-            const lastReq = await Request.findOne().sort({ requestNo: -1 });
+            const lastReq = await Request.findOne({ company: req.userCompany }).sort({ requestNo: -1 });
             const requestNo = lastReq && lastReq.requestNo ? lastReq.requestNo + 1 : 101;
 
             let newReq = new Request({
                 user: req.userId,
+                company: req.userCompany,
                 query: query.trim(),
                 requestNo,
                 requestType: requestType || 'General',
@@ -24,7 +25,7 @@ exports.createRequest = async (req, res) => {
             });
             await newReq.save();
             newReq = await newReq.populate('user', 'name profileImage role');
-            io.emit('new_request', newReq);
+            io.to(req.userCompany.toString()).emit('new_request', newReq);
             await logAction(req.userId, 'Raised a new ticket', 'request', { requestNo: newReq.requestNo });
             return res.status(201).json(newReq);
         } catch (err) {
@@ -53,7 +54,8 @@ exports.createRequest = async (req, res) => {
 exports.getRequests = async (req, res) => {
     try {
         const { status, limit = 50, page = 1 } = req.query;
-        let queryFilter = status ? { status } : {};
+        let queryFilter = { company: req.userCompany };
+        if (status) queryFilter.status = status;
         if (!['admin', 'superadmin'].includes(req.user.role)) queryFilter.user = req.userId;
         const skip = (page - 1) * limit;
         const requests = await Request.find(queryFilter)
@@ -73,11 +75,11 @@ exports.updateRequestStatus = async (req, res) => {
 
     try {
         const User = require('../models/User');
-        const oldRequest = await Request.findById(req.params.id);
+        const oldRequest = await Request.findOne({ _id: req.params.id, company: req.userCompany });
         if (!oldRequest) return res.status(404).json({ error: 'Not found' });
 
-        let updated = await Request.findByIdAndUpdate(
-            req.params.id,
+        let updated = await Request.findOneAndUpdate(
+            { _id: req.params.id, company: req.userCompany },
             { status, comment, actionBy: req.userId, updatedAt: new Date() },
             { new: true }
         );
@@ -109,7 +111,7 @@ exports.updateRequestStatus = async (req, res) => {
 
         // Emit notifications
         io.to(updated.user._id.toString()).emit('notification_received', notification);
-        io.emit('status_update', updated);
+        io.to(req.userCompany.toString()).emit('status_update', updated);
 
         await logAction(req.userId, `Updated request #${updated.requestNo} status to ${status}`, 'request', { requestNo: updated.requestNo, status });
 
@@ -120,11 +122,11 @@ exports.updateRequestStatus = async (req, res) => {
 exports.deleteRequest = async (req, res) => {
     const io = req.app.get('socketio');
     try {
-        const request = await Request.findById(req.params.id);
+        const request = await Request.findOne({ _id: req.params.id, company: req.userCompany });
         if (!request) return res.status(404).json({ error: 'Not found' });
         if (request.user.toString() !== req.userId.toString() && !['admin', 'superadmin'].includes(req.user.role)) return res.status(403).json({ error: 'Unauthorized' });
-        await Request.findByIdAndDelete(req.params.id);
-        io.emit('request_deleted', { id: req.params.id });
+        await Request.findOneAndDelete({ _id: req.params.id, company: req.userCompany });
+        io.to(req.userCompany.toString()).emit('request_deleted', { id: req.params.id });
         await logAction(req.userId, `Deleted request #${request.requestNo}`, 'request', { requestNo: request.requestNo });
         res.json({ message: 'Deleted' });
     } catch (err) { res.status(500).json({ error: 'Error' }); }
@@ -132,7 +134,7 @@ exports.deleteRequest = async (req, res) => {
 
 exports.getStats = async (req, res) => {
     try {
-        let queryFilter = {};
+        let queryFilter = { company: req.userCompany };
         if (!['admin', 'superadmin'].includes(req.user.role)) queryFilter.user = req.userId;
         const stats = await Request.aggregate([{ $match: queryFilter }, { $group: { _id: '$status', count: { $sum: 1 } } }]);
         const formattedStats = { Pending: 0, Approved: 0, Resolved: 0, Cancelled: 0 };
@@ -147,7 +149,7 @@ exports.getDetailedStats = async (req, res) => {
         last7Days.setDate(last7Days.getDate() - 7);
 
         const dailyCounts = await Request.aggregate([
-            { $match: { createdAt: { $gte: last7Days } } },
+            { $match: { company: req.userCompany, createdAt: { $gte: last7Days } } },
             {
                 $group: {
                     _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
@@ -158,7 +160,7 @@ exports.getDetailedStats = async (req, res) => {
         ]);
 
         const avgResolutionTime = await Request.aggregate([
-            { $match: { status: "Resolved", updatedAt: { $exists: true } } },
+            { $match: { company: req.userCompany, status: "Resolved", updatedAt: { $exists: true } } },
             {
                 $group: {
                     _id: null,
