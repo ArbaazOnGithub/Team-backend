@@ -2,8 +2,8 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const UserSchema = new mongoose.Schema({
-    mobile: { type: String, required: true, unique: true, trim: true },
-    email: { type: String, required: true, unique: true, trim: true, lowercase: true },
+    mobile: { type: String, required: true, trim: true },
+    email: { type: String, required: true, trim: true, lowercase: true },
     password: { type: String, required: true },
     name: { type: String, required: true, trim: true },
     profileImage: { type: String, default: '' },
@@ -17,6 +17,10 @@ const UserSchema = new mongoose.Schema({
 
     createdAt: { type: Date, default: Date.now }
 });
+
+// Compound Indexes for Multi-Tenancy Uniqueness
+UserSchema.index({ company: 1, mobile: 1 }, { unique: true });
+UserSchema.index({ company: 1, email: 1 }, { unique: true });
 
 // Enforce that only '9399285780' can be a superadmin
 UserSchema.pre('save', async function () {

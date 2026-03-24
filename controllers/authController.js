@@ -98,14 +98,15 @@ exports.forgotPassword = async (req, res) => {
 };
 
 exports.resetPassword = async (req, res) => {
-    const { email, otp, newPassword } = req.body;
+    const { email, otp, newPassword, companyId } = req.body;
 
-    if (!email || !otp || !newPassword) return res.status(400).json({ error: "All fields required" });
+    if (!email || !otp || !newPassword || !companyId) return res.status(400).json({ error: "All fields required" });
     if (newPassword.length < 6) return res.status(400).json({ error: "Password min 6 chars" });
 
     try {
         const user = await User.findOne({
-            email,
+            email: email.toLowerCase(),
+            company: companyId,
             resetOtp: otp,
             resetOtpExpire: { $gt: Date.now() }
         });
