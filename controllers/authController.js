@@ -71,7 +71,9 @@ exports.forgotPassword = async (req, res) => {
     if (!email || !companyId) return res.status(400).json({ error: "Email and company are required" });
 
     try {
+        console.log(`[ForgotPass] Searching for user: ${email} in company: ${companyId}`);
         const user = await User.findOne({ email: email.toLowerCase(), company: companyId });
+        console.log(`[ForgotPass] User found: ${user ? 'Yes' : 'No'}`);
         if (!user) return res.status(404).json({ error: "User does not exist please register first" });
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -80,20 +82,22 @@ exports.forgotPassword = async (req, res) => {
         await user.save();
 
         try {
+            console.log(`[ForgotPass] Attempting to send OTP email to: ${user.email}`);
             await transporter.sendMail({
                 from: 'Team App <' + process.env.EMAIL_USER + '>',
                 to: user.email,
                 subject: 'Password Reset OTP',
                 text: `Your OTP for password reset is: ${otp}. This OTP is for the mobile number: ${user.mobile}`
             });
+            console.log(`[ForgotPass] Email sent successfully to ${user.email}`);
             res.json({ message: "OTP sent to your email!", mobile: user.mobile });
         } catch (emailError) {
             console.error("Email Send FAILED:", emailError);
-            res.status(500).json({ error: "Email failed to send." });
+            res.status(500).json({ error: "Email failed to send", details: emailError.message });
         }
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Failed to process request" });
+        console.error("Forgot Password Process CRASH:", err);
+        res.status(500).json({ error: "Failed to process request", details: err.message });
     }
 };
 
