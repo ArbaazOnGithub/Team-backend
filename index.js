@@ -30,9 +30,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 
 // --- 2. TRANSPORTER ---
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true, // Use SSL
+  host: 'smtp-relay.brevo.com',
+  port: 2525, // Port 2525 is non-standard and rarely blocked
+  secure: false, // Use STARTTLS
   pool: true,
   maxConnections: 5,
   maxMessages: 100,
