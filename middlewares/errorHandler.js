@@ -15,7 +15,17 @@ const errorHandler = async (err, req, res, next) => {
         console.error('Failed to save to SystemErrorLog:', logErr);
     }
 
-    res.status(500).json({ error: 'An unexpected system error occurred. Our team has been notified.' });
+    // Ensure CORS headers are present even on errors
+    const origin = req.get('origin');
+    if (origin) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+
+    res.status(500).json({ 
+        error: 'An unexpected system error occurred.',
+        details: err.message
+    });
 };
 
 module.exports = errorHandler;
