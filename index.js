@@ -28,32 +28,57 @@ const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/team_app_v3';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
-// --- 2. TRANSPORTER ---
-const transporter = nodemailer.createTransport({
-  host: 'smtp-relay.brevo.com',
-  port: 2525, // Port 2525 is non-standard and rarely blocked
-  secure: false, // Use STARTTLS
-  pool: true,
-  maxConnections: 5,
-  maxMessages: 100,
-  connectionTimeout: 10000, // 10s
-  greetingTimeout: 10000,
-  socketTimeout: 20000,
-  auth: {
-    user: (process.env.EMAIL_USER || "").trim(),
-    pass: (process.env.EMAIL_PASS || "").trim()
-  }
-});
+// --- 2. BREVO API EMAIL SENDER ---
+const https = require('https');
 
-// Verify SMTP connection on startup
-transporter.verify((error, success) => {
-    if (error) {
-        console.error("❌ SMTP Verification Failed:", error.message);
-    } else {
-        console.log("✓ SMTP Transporter is ready");
+const sendBrevoEmail = async ({ to, subject, htmlContent }) => {
+  const data = JSON.stringify({
+    sender: { email: (process.env.EMAIL_USER || "mohd.arbaaz.job@gmail.com").trim(), name: "Team App" },
+    to: [{ email: to }],
+    subject: subject,
+    htmlContent: htmlContent
+  });
+
+  const options = {
+    hostname: 'api.brevo.com',
+    port: 443,
+    path: '/v3/smtp/email',
+    method: 'POST',
+    headers: {
+      'accept': 'application/json',
+      'api-key': (process.env.EMAIL_PASS || "").trim(),
+      'content-type': 'application/json',
+      'content-length': data.length
     }
-});
-app.set('transporter', transporter);
+  };
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let responseBody = '';
+      res.on('data', (chunk) => responseBody += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve(JSON.parse(responseBody));
+        } else {
+          reject(new Error(`Brevo API Error: ${res.statusCode} - ${responseBody}`));
+        }
+      });
+    });
+
+    req.on('error', (error) => reject(error));
+    req.write(data);
+    req.end();
+  });
+};
+
+// SIMULATE Nodemailer interface to avoid breaking existing controllers
+const transporterSim = {
+  sendMail: async ({ to, subject, html }) => {
+    return sendBrevoEmail({ to, subject, htmlContent: html });
+  }
+};
+app.set('transporter', transporterSim);
+console.log("✓ Brevo API Email Sender (HTTP) is Ready");
 
 // --- 3. MIDDLEWARE ---
 
