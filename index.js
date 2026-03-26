@@ -89,7 +89,8 @@ const allowedOrigins = [
   "https://team-frontend-murex.vercel.app",
   process.env.FRONTEND_URL,
   "http://localhost:5173",
-  "http://localhost"
+  "http://localhost",
+  "capacitor://localhost"
 ].filter(Boolean);
 
 app.use(cors({
@@ -123,7 +124,9 @@ const io = new Server(server, {
       "https://attendance.n1solution.in",
       "https://team-frontend-murex.vercel.app",
       process.env.FRONTEND_URL,
-      "http://localhost:5173"
+      "http://localhost:5173",
+      "http://localhost",
+      "capacitor://localhost"
     ].filter(Boolean),
     methods: ["GET", "POST"],
     credentials: true
