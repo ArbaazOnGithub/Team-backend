@@ -88,7 +88,8 @@ const allowedOrigins = [
   "https://attendance.n1solution.in",
   "https://team-frontend-murex.vercel.app",
   process.env.FRONTEND_URL,
-  "http://localhost:5173"
+  "http://localhost:5173",
+  "http://localhost"
 ].filter(Boolean);
 
 app.use(cors({
@@ -200,7 +201,7 @@ mongoose.connect(MONGODB_URI)
       console.error("✗ Failed to enforce Super Admin role:", err.message);
     }
 
-    server.listen(PORT, () => console.log(`✓ Server running on port ${PORT}`));
+    server.listen(PORT, '0.0.0.0', () => console.log(`✓ Server running on port ${PORT}`));
   })
   .catch(err => console.error("✗ MongoDB Connection Error:", err));
 
