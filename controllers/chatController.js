@@ -30,21 +30,26 @@ exports.getUsers = async (req, res) => {
 exports.togglePin = async (req, res) => {
     try {
         const isAuthorized = req.user.role === 'admin' || req.user.role === 'superadmin';
+        // Use a consistent company filter for both lookup and update
+        const companyFilter = isAuthorized ? { $exists: true } : req.userCompany;
+
         const message = await Message.findOne({ 
             _id: req.params.id, 
-            company: isAuthorized ? { $exists: true } : req.userCompany 
+            company: companyFilter
         });
         if (!message) return res.status(404).json({ error: 'Message not found' });
 
         const isPinned = !message.isPinned;
         const updated = await Message.findOneAndUpdate(
-            { _id: req.params.id, company: req.userCompany },
+            { _id: req.params.id, company: companyFilter },
             {
                 isPinned,
                 pinnedBy: isPinned ? req.userId : null
             },
             { new: true }
         ).populate('user', 'name profileImage role').populate('pinnedBy', 'name');
+
+        if (!updated) return res.status(404).json({ error: 'Message not found after update' });
 
         const io = req.app.get('socketio');
         io.emit('message_pinned', updated);
@@ -53,21 +58,26 @@ exports.togglePin = async (req, res) => {
 
         res.json(updated);
     } catch (err) {
+        console.error('togglePin error:', err);
         res.status(500).json({ error: 'Failed to toggle pin' });
     }
 };
 
 exports.deleteMessage = async (req, res) => {
     try {
-        const message = await Message.findOne({ _id: req.params.id, company: req.userCompany });
+        const isAuthorized = ['admin', 'superadmin'].includes(req.user.role);
+        // Admins/superadmins can delete any company's message
+        const companyFilter = isAuthorized ? { $exists: true } : req.userCompany;
+
+        const message = await Message.findOne({ _id: req.params.id, company: companyFilter });
         if (!message) return res.status(404).json({ error: 'Message not found' });
 
-        // Authorization: Admin or the person who sent the message
-        if (!['admin', 'superadmin'].includes(req.user.role) && message.user.toString() !== req.userId.toString()) {
+        // Authorization: Admin/superadmin or the person who sent the message
+        if (!isAuthorized && message.user.toString() !== req.userId.toString()) {
             return res.status(403).json({ error: 'Not authorized' });
         }
 
-        await Message.findOneAndDelete({ _id: req.params.id, company: req.userCompany });
+        await Message.findOneAndDelete({ _id: req.params.id, company: companyFilter });
 
         const io = req.app.get('socketio');
         io.emit('message_deleted', req.params.id);
@@ -76,6 +86,7 @@ exports.deleteMessage = async (req, res) => {
 
         res.json({ message: 'Message deleted' });
     } catch (err) {
+        console.error('deleteMessage error:', err);
         res.status(500).json({ error: 'Failed to delete message' });
     }
 };
