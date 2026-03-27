@@ -29,7 +29,11 @@ exports.getUsers = async (req, res) => {
 
 exports.togglePin = async (req, res) => {
     try {
-        const message = await Message.findOne({ _id: req.params.id, company: req.userCompany });
+        const isAuthorized = req.user.role === 'admin' || req.user.role === 'superadmin';
+        const message = await Message.findOne({ 
+            _id: req.params.id, 
+            company: isAuthorized ? { $exists: true } : req.userCompany 
+        });
         if (!message) return res.status(404).json({ error: 'Message not found' });
 
         const isPinned = !message.isPinned;
@@ -59,7 +63,7 @@ exports.deleteMessage = async (req, res) => {
         if (!message) return res.status(404).json({ error: 'Message not found' });
 
         // Authorization: Admin or the person who sent the message
-        if (req.user.role !== 'admin' && message.user.toString() !== req.userId.toString()) {
+        if (!['admin', 'superadmin'].includes(req.user.role) && message.user.toString() !== req.userId.toString()) {
             return res.status(403).json({ error: 'Not authorized' });
         }
 
