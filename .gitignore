@@ -4,3 +4,4 @@ dist/
 uploads/
 npm-debug.log*
 Teams-App.zip
+config/*.json

@@ -240,11 +240,12 @@ io.on('connection', (socket) => {
       io.to(socket.userCompany.toString()).emit('receive_message', newMessage);
 
       // Send Push Notification to all users in the same company except the sender
-      const usersInCompany = await User.find({ company: socket.userCompany, _id: { $ne: socket.userId } });
-      for (const u of usersInCompany) {
-        if (u.fcmToken) {
-          sendPushNotification(u._id, `New message from ${newMessage.user.name}`, newMessage.content || 'Sent an attachment', { type: 'chat' });
-        }
+      const usersInCompany = await User.find({ company: socket.userCompany, _id: { $ne: socket.userId }, fcmToken: { $exists: true, $ne: '' } });
+      const tokens = usersInCompany.map(u => u.fcmToken);
+      
+      if (tokens.length > 0) {
+        const { notifyMultiple } = require('./utils/notificationService');
+        notifyMultiple(tokens, `New message from ${newMessage.user.name}`, newMessage.content || 'Sent an attachment', { type: 'chat' });
       }
     } catch (err) {
       console.error("Chat error:", err);

@@ -39,18 +39,24 @@ exports.notifyAdmins = async (companyId, title, body, data = {}) => {
     try {
         const admins = await User.find({ company: companyId, role: { $in: ['admin', 'superadmin'] } });
         const tokens = admins.map(a => a.fcmToken).filter(t => t);
-
         if (tokens.length === 0) return;
+        await this.notifyMultiple(tokens, title, body, data);
+    } catch (error) {
+        console.error('✗ Admin push failed:', error.message);
+    }
+};
 
+exports.notifyMultiple = async (tokens, title, body, data = {}) => {
+    try {
+        if (!tokens || tokens.length === 0) return;
         const message = {
             notification: { title, body },
             data: data,
             tokens: tokens
         };
-
         const response = await admin.messaging().sendEachForMulticast(message);
-        console.log(`✓ Multicast push sent to ${response.successCount} admins`);
+        console.log(`✓ Multicast push sent to ${response.successCount} devices`);
     } catch (error) {
-        console.error('✗ Multicast push failed:', error.message);
+        console.error('✗ Multiple devices push failed:', error.message);
     }
 };
