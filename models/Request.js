@@ -11,6 +11,7 @@ const RequestSchema = new mongoose.Schema({
     daysCount: { type: Number },
     status: { type: String, enum: ['Pending', 'Approved', 'Resolved', 'Cancelled'], default: 'Pending' },
     comment: { type: String, default: "" },
+    attachmentUrl: { type: String }, // URL for photos/documents
     actionBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }

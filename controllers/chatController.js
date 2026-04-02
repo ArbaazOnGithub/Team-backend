@@ -90,3 +90,21 @@ exports.deleteMessage = async (req, res) => {
         res.status(500).json({ error: 'Failed to delete message' });
     }
 };
+
+exports.uploadMessageFile = async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        
+        let type = 'document';
+        if (req.file.mimetype.startsWith('image/')) type = 'image';
+        else if (req.file.mimetype.startsWith('video/')) type = 'video';
+
+        res.json({
+            fileUrl: req.file.path,
+            fileType: type
+        });
+    } catch (err) {
+        console.error('uploadMessageFile error:', err);
+        res.status(500).json({ error: 'Failed to upload file' });
+    }
+};

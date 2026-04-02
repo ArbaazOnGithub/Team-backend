@@ -1,8 +1,9 @@
 const Request = require('../models/Request');
 const { logAction } = require('../utils/logger');
+const { notifyAdmins, sendPushNotification } = require('../utils/notificationService');
 
 exports.createRequest = async (req, res) => {
-    const { query, requestType, startDate, endDate, daysCount } = req.body;
+    const { query, requestType, startDate, endDate, daysCount, attachmentUrl } = req.body;
     const io = req.app.get('socketio');
 
     if (!query || !query.trim()) return res.status(400).json({ error: 'Query empty' });
@@ -21,12 +22,17 @@ exports.createRequest = async (req, res) => {
                 requestType: requestType || 'General',
                 startDate,
                 endDate,
-                daysCount
+                daysCount,
+                attachmentUrl
             });
             await newReq.save();
             newReq = await newReq.populate('user', 'name profileImage role');
             io.to(req.userCompany.toString()).emit('new_request', newReq);
             await logAction(req.userId, 'Raised a new ticket', 'request', { requestNo: newReq.requestNo });
+            
+            // Send Push Notification to Admins
+            notifyAdmins(req.userCompany, 'New Request Received', `${newReq.user.name} submitted a ${newReq.requestType} request.`, { type: 'request' });
+            
             return res.status(201).json(newReq);
         } catch (err) {
             // Handle duplicate key error for requestNo due to race condition
@@ -112,6 +118,9 @@ exports.updateRequestStatus = async (req, res) => {
         // Emit notifications
         io.to(updated.user._id.toString()).emit('notification_received', notification);
         io.to(req.userCompany.toString()).emit('status_update', updated);
+
+        // Send Push Notification to Requester
+        sendPushNotification(updated.user._id, 'Request Status Updated', `Your request #${updated.requestNo} is now ${status}.`, { type: 'request' });
 
         await logAction(req.userId, `Updated request #${updated.requestNo} status to ${status}`, 'request', { requestNo: updated.requestNo, status });
 

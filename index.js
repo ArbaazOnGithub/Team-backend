@@ -19,6 +19,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const companyRoutes = require('./routes/companyRoutes');
 const Message = require('./models/Message');
+const { sendPushNotification } = require('./utils/notificationService');
 
 const app = express();
 const server = http.createServer(app);
@@ -221,16 +222,30 @@ io.on('connection', (socket) => {
   }
 
   // Chat logic
-  socket.on('send_message', async (content) => {
+  socket.on('send_message', async (data) => {
     try {
+      const content = typeof data === 'string' ? data : data.content;
+      const fileUrl = data.fileUrl || null;
+      const fileType = data.fileType || null;
+
       let newMessage = new Message({
         user: socket.userId,
         company: socket.userCompany,
-        content: content.trim()
+        content: content?.trim(),
+        fileUrl,
+        fileType
       });
       await newMessage.save();
-      newMessage = await newMessage.populate('user', 'name profileImage role');
+      newMessage = await (await newMessage.populate('user', 'name profileImage role')).populate('readBy', 'name profileImage');
       io.to(socket.userCompany.toString()).emit('receive_message', newMessage);
+
+      // Send Push Notification to all users in the same company except the sender
+      const usersInCompany = await User.find({ company: socket.userCompany, _id: { $ne: socket.userId } });
+      for (const u of usersInCompany) {
+        if (u.fcmToken) {
+          sendPushNotification(u._id, `New message from ${newMessage.user.name}`, newMessage.content || 'Sent an attachment', { type: 'chat' });
+        }
+      }
     } catch (err) {
       console.error("Chat error:", err);
     }

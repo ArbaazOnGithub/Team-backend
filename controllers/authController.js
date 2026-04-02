@@ -147,3 +147,16 @@ exports.updateProfile = async (req, res) => {
         res.status(500).json({ error: "Failed to update profile" });
     }
 };
+
+exports.updateFcmToken = async (req, res) => {
+    try {
+        const { fcmToken } = req.body;
+        if (!fcmToken) return res.status(400).json({ error: "Token required" });
+        
+        await User.findByIdAndUpdate(req.userId, { fcmToken });
+        res.json({ message: "FCM Token updated" });
+    } catch (err) {
+        console.error('FCM Token update error:', err);
+        res.status(500).json({ error: "FCM update failed" });
+    }
+};

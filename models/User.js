@@ -8,8 +8,10 @@ const UserSchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true },
     profileImage: { type: String, default: '' },
     role: { type: String, enum: ['user', 'admin', 'superadmin'], default: 'user' },
+    status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+    fcmToken: { type: String }, // Store device token for push notifications
     company: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', required: true },
-    paidLeaveBalance: { type: Number, default: 0 },
+    paidLeaveBalance: { type: Number, default: 12 },
 
     // Fields for Password Reset
     resetOtp: { type: String },
