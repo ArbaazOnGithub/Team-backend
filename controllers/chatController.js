@@ -52,9 +52,9 @@ exports.togglePin = async (req, res) => {
         if (!updated) return res.status(404).json({ error: 'Message not found after update' });
 
         const io = req.app.get('socketio');
-        io.emit('message_pinned', updated);
+        io.to(req.userCompany.toString()).emit('message_pinned', updated);
 
-        await logAction(req.userId, `${isPinned ? 'Pinned' : 'Unpinned'} a message`, 'chat', { messageId: req.params.id });
+        await logAction(req.userId, `${isPinned ? 'Pinned' : 'Unpinned'} a message`, 'chat', { messageId: req.params.id }, req.userCompany);
 
         res.json(updated);
     } catch (err) {
@@ -80,9 +80,9 @@ exports.deleteMessage = async (req, res) => {
         await Message.findOneAndDelete({ _id: req.params.id, company: companyFilter });
 
         const io = req.app.get('socketio');
-        io.emit('message_deleted', req.params.id);
+        io.to(req.userCompany.toString()).emit('message_deleted', req.params.id);
 
-        await logAction(req.userId, 'Deleted a chat message', 'chat', { content: message.content.substring(0, 50) });
+        await logAction(req.userId, 'Deleted a chat message', 'chat', { content: message.content.substring(0, 50) }, req.userCompany);
 
         res.json({ message: 'Message deleted' });
     } catch (err) {

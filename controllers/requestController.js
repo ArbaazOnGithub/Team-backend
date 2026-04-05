@@ -28,7 +28,7 @@ exports.createRequest = async (req, res) => {
             await newReq.save();
             newReq = await newReq.populate('user', 'name profileImage role');
             io.to(req.userCompany.toString()).emit('new_request', newReq);
-            await logAction(req.userId, 'Raised a new ticket', 'request', { requestNo: newReq.requestNo });
+            await logAction(req.userId, 'Raised a new ticket', 'request', { requestNo: newReq.requestNo }, req.userCompany);
             
             // Send Push Notification to Admins
             notifyAdmins(req.userCompany, 'New Request Received', `${newReq.user.name} submitted a ${newReq.requestType} request.`, { type: 'request' });
@@ -111,6 +111,7 @@ exports.updateRequestStatus = async (req, res) => {
         const Notification = require('../models/Notification');
         const notification = await Notification.create({
             user: updated.user._id,
+            company: req.userCompany,
             message: `Your request status has been updated to ${status}. Admin comment: ${comment || 'No comment'}`,
             type: 'request_update'
         });
@@ -122,7 +123,7 @@ exports.updateRequestStatus = async (req, res) => {
         // Send Push Notification to Requester
         sendPushNotification(updated.user._id, 'Request Status Updated', `Your request #${updated.requestNo} is now ${status}.`, { type: 'request' });
 
-        await logAction(req.userId, `Updated request #${updated.requestNo} status to ${status}`, 'request', { requestNo: updated.requestNo, status });
+        await logAction(req.userId, `Updated request #${updated.requestNo} status to ${status}`, 'request', { requestNo: updated.requestNo, status }, req.userCompany);
 
         res.json(updated);
     } catch (err) { res.status(500).json({ error: 'Error' }); }
@@ -136,7 +137,7 @@ exports.deleteRequest = async (req, res) => {
         if (request.user.toString() !== req.userId.toString() && !['admin', 'superadmin'].includes(req.user.role)) return res.status(403).json({ error: 'Unauthorized' });
         await Request.findOneAndDelete({ _id: req.params.id, company: req.userCompany });
         io.to(req.userCompany.toString()).emit('request_deleted', { id: req.params.id });
-        await logAction(req.userId, `Deleted request #${request.requestNo}`, 'request', { requestNo: request.requestNo });
+        await logAction(req.userId, `Deleted request #${request.requestNo}`, 'request', { requestNo: request.requestNo }, req.userCompany);
         res.json({ message: 'Deleted' });
     } catch (err) { res.status(500).json({ error: 'Error' }); }
 };

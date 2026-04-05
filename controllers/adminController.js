@@ -75,7 +75,7 @@ exports.updateUserRole = async (req, res) => {
         );
         if (!user) return res.status(404).json({ error: 'User not found' });
 
-        await logAction(req.userId, `Changed role of ${user.name} to ${role}`, 'admin', { targetUserId: userId, newRole: role });
+        await logAction(req.userId, `Changed role of ${user.name} to ${role}`, 'admin', { targetUserId: userId, newRole: role }, req.userCompany);
 
         res.json({ message: 'User role updated successfully', user });
     } catch (error) {
@@ -90,7 +90,7 @@ exports.deleteUser = async (req, res) => {
         const user = await User.findOneAndDelete({ _id: userId, company: req.userCompany });
         if (!user) return res.status(404).json({ error: 'User not found' });
 
-        await logAction(req.userId, `Deleted user: ${user.name}`, 'admin', { deletedUserId: userId });
+        await logAction(req.userId, `Deleted user: ${user.name}`, 'admin', { deletedUserId: userId }, req.userCompany);
 
         res.json({ message: 'User deleted successfully' });
     } catch (error) {
@@ -117,6 +117,7 @@ exports.updateUserLeaveBalance = async (req, res) => {
 
         const notification = await Notification.create({
             user: userId,
+            company: req.userCompany,
             message,
             type: 'leave_update'
         });
@@ -124,7 +125,7 @@ exports.updateUserLeaveBalance = async (req, res) => {
         // Emit real-time notification
         io.to(userId.toString()).emit('notification_received', notification);
 
-        await logAction(req.userId, `Adjusted leave balance for ${user.name} by ${diff} days`, 'admin', { targetUserId: userId, diff, reason });
+        await logAction(req.userId, `Adjusted leave balance for ${user.name} by ${diff} days`, 'admin', { targetUserId: userId, diff, reason }, req.userCompany);
 
         res.json({ message: 'Leave balance updated successfully', user });
     } catch (error) {
@@ -150,6 +151,7 @@ exports.sendAnnouncement = async (req, res) => {
         const notificationPromises = users.map(user =>
             Notification.create({
                 user: user._id,
+                company: req.userCompany,
                 message: message.trim(),
                 type: 'admin_announcement'
             })
@@ -164,7 +166,7 @@ exports.sendAnnouncement = async (req, res) => {
             createdAt: new Date()
         });
 
-        await logAction(req.userId, 'Sent a global announcement', 'admin', { content: message.trim() });
+        await logAction(req.userId, 'Sent a global announcement', 'admin', { content: message.trim() }, req.userCompany);
 
 
         res.json({ message: 'Announcement broadcasted successfully to all users!' });
@@ -221,7 +223,7 @@ exports.createCompany = async (req, res) => {
         if (existing) return res.status(400).json({ error: 'A company with this slug already exists' });
 
         const company = await Company.create({ name, slug: normalizedSlug });
-        await logAction(req.userId, `Created new company: ${name} (${normalizedSlug})`, 'admin', { newCompanyId: company._id });
+        await logAction(req.userId, `Created new company: ${name} (${normalizedSlug})`, 'admin', { newCompanyId: company._id }, req.userCompany);
 
         res.status(201).json(company);
     } catch (error) {
@@ -261,7 +263,7 @@ exports.deleteCompany = async (req, res) => {
 
         await Company.findByIdAndDelete(companyId);
 
-        await logAction(req.userId, `Deleted company: ${company.name} and ALL its data`, 'admin', { deletedCompanySlug: company.slug });
+        await logAction(req.userId, `Deleted company: ${company.name} and ALL its data`, 'admin', { deletedCompanySlug: company.slug }, req.userCompany);
 
         res.json({ message: 'Company and all associated data successfully deleted.' });
     } catch (error) {

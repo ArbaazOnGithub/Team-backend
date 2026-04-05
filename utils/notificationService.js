@@ -40,7 +40,7 @@ exports.notifyAdmins = async (companyId, title, body, data = {}) => {
         const admins = await User.find({ company: companyId, role: { $in: ['admin', 'superadmin'] } });
         const tokens = admins.map(a => a.fcmToken).filter(t => t);
         if (tokens.length === 0) return;
-        await this.notifyMultiple(tokens, title, body, data);
+        await exports.notifyMultiple(tokens, title, body, data);
     } catch (error) {
         console.error('✗ Admin push failed:', error.message);
     }

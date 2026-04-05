@@ -28,7 +28,7 @@ exports.register = async (req, res) => {
         await newUser.save();
 
         const token = jwt.sign({ userId: newUser._id }, JWT_SECRET, { expiresIn: '7d' });
-        await logAction(newUser._id, 'Registered a new account', 'auth', { mobile: newUser.mobile });
+        await logAction(newUser._id, 'Registered a new account', 'auth', { mobile: newUser.mobile }, newUser.company);
         res.status(201).json({ user: newUser.toJSON(), token });
     } catch (dbErr) {
         console.error(dbErr);
@@ -57,7 +57,7 @@ exports.login = async (req, res) => {
             console.log(`✓ Restored SuperAdmin role for ${superMobile} during login`);
         }
 
-        await logAction(user._id, 'Logged in to the system', 'auth');
+        await logAction(user._id, 'Logged in to the system', 'auth', {}, user.company);
         res.json({ user: user.toJSON(), token });
     } catch (err) {
         res.status(500).json({ error: 'Login error' });
@@ -123,7 +123,7 @@ exports.resetPassword = async (req, res) => {
         user.resetOtpExpire = undefined;
         await user.save();
 
-        await logAction(user._id, 'Reset password via OTP', 'auth');
+        await logAction(user._id, 'Reset password via OTP', 'auth', {}, user.company);
         res.json({ message: "Password updated successfully! Please login." });
     } catch (err) {
         console.error(err);
