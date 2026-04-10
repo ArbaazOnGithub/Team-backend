@@ -12,7 +12,7 @@ const upload = multer({ storage }).single('profileImage');
 
 const auth = require('../middlewares/auth');
 
-router.post('/register', upload, authController.register);
+router.post('/register', upload, auth, authController.register);
 router.post('/login', authController.login);
 router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password', authController.resetPassword);

@@ -169,9 +169,9 @@ app.use(errorHandler);
 // Increment paidLeaveBalance by 2.5 on the 1st of every month at midnight
 cron.schedule('0 0 1 * *', async () => {
   try {
-    console.log("Running monthly leave accumulation job...");
-    await User.updateMany({}, { $inc: { paidLeaveBalance: 2.5 } });
-    console.log("✓ Leave accumulation completed");
+    console.log("Running monthly leave accumulation job for active users...");
+    const result = await User.updateMany({ status: 'active' }, { $inc: { paidLeaveBalance: 2.5 } });
+    console.log(`✓ Leave accumulation completed. Updated ${result.modifiedCount} users.`);
   } catch (error) {
     console.error("✗ Leave accumulation failed:", error);
   }

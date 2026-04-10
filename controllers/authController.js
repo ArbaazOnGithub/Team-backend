@@ -15,13 +15,27 @@ exports.register = async (req, res) => {
     const profileImage = req.file ? req.file.path : "";
 
     try {
+        const userCount = await User.countDocuments({ company: companyId });
+        
+        // Authorization Check: Allow if it's the first user of a company, 
+        // OR if the requester is an Admin/SuperAdmin for that company.
+        if (userCount > 0) {
+            if (!req.user || !['admin', 'superadmin'].includes(req.user.role)) {
+                return res.status(403).json({ error: 'Unauthorized: Only Admins can register new users.' });
+            }
+            // For multi-tenancy: Ensure admin can only register users in their own company
+            // (SuperAdmin can bypass this via req.userCompany context)
+            if (req.user.role === 'admin' && req.user.company.toString() !== companyId) {
+                return res.status(403).json({ error: 'Unauthorized: You can only register users for your own company.' });
+            }
+        }
+
         const existingUser = await User.findOne({ company: companyId, $or: [{ mobile }, { email }] });
         if (existingUser) return res.status(400).json({ error: "Mobile or Email already registered in this company" });
 
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        const userCount = await User.countDocuments({ company: companyId });
         const role = userCount === 0 ? 'admin' : 'user';
 
         const newUser = new User({ mobile, email, name, password: hashedPassword, profileImage, role, company: companyId });

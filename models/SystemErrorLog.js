@@ -10,4 +10,7 @@ const SystemErrorLogSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
+// TTL Index: Delete error logs older than 15 days (15 * 24 * 60 * 60 seconds)
+SystemErrorLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 1296000 });
+
 module.exports = mongoose.model('SystemErrorLog', SystemErrorLogSchema);
