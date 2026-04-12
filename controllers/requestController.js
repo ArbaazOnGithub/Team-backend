@@ -60,10 +60,13 @@ exports.createRequest = async (req, res) => {
 
 exports.getRequests = async (req, res) => {
     try {
-        const { status, limit = 50, page = 1 } = req.query;
+        const { status, limit = 50, page = 1, calendar } = req.query;
         let queryFilter = { company: req.userCompany };
         
-        if (req.user.role === 'user') {
+        if (calendar === 'true') {
+            queryFilter.team = req.user.team;
+            queryFilter.requestType = 'Leave'; // Only leaves for calendar
+        } else if (req.user.role === 'user') {
             queryFilter.user = req.userId;
             queryFilter.team = req.user.team;
         } else if (req.user.role === 'admin') {
