@@ -64,7 +64,7 @@ exports.getRequests = async (req, res) => {
         let queryFilter = { company: req.userCompany };
         
         if (calendar === 'true') {
-            queryFilter.team = req.user.team;
+            queryFilter.team = req.activeTeam || req.user.team;
             queryFilter.requestType = 'Leave'; // Only leaves for calendar
         } else if (req.user.role === 'user') {
             queryFilter.user = req.userId;
