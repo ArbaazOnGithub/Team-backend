@@ -5,8 +5,9 @@ const { logAction } = require('../utils/logger');
 exports.getMessages = async (req, res) => {
     try {
         const query = { company: req.userCompany };
-        // Strictly filter by team if user has one (superadmins might not have a team assigned)
-        if (req.user.team) query.team = req.user.team;
+        // Use activeTeam from context switcher if available
+        if (req.activeTeam) query.team = req.activeTeam;
+        else if (req.user.team) query.team = req.user.team;
 
         const messages = await Message.find(query)
             .sort({ createdAt: -1 })
@@ -25,7 +26,8 @@ exports.getMessages = async (req, res) => {
 exports.getUsers = async (req, res) => {
     try {
         const query = { company: req.userCompany };
-        if (req.user.team) query.team = req.user.team;
+        if (req.activeTeam) query.team = req.activeTeam;
+        else if (req.user.team) query.team = req.user.team;
 
         const users = await User.find(query, 'name profileImage role');
         res.json(users);

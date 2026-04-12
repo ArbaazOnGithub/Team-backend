@@ -9,9 +9,8 @@ exports.getAllUsers = async (req, res) => {
         const query = { company: req.userCompany };
         if (req.user.role === 'admin') {
             query.role = { $ne: 'superadmin' };
-            // Include their primary team AND any additional managed teams
-            const allowedTeams = [req.user.team, ...(req.user.managedTeams || [])].filter(Boolean);
-            query.team = { $in: allowedTeams };
+            // Use activeTeam from context switcher if authorized
+            query.team = req.activeTeam || req.user.team;
         }
         const users = await User.find(query).sort({ createdAt: -1 }).populate('team', 'name').populate('managedTeams', 'name');
         res.json(users);
@@ -25,8 +24,7 @@ exports.getRequestLogs = async (req, res) => {
     try {
         const query = { company: req.userCompany };
         if (req.user.role === 'admin') {
-            const allowedTeams = [req.user.team, ...(req.user.managedTeams || [])].filter(Boolean);
-            query.team = { $in: allowedTeams };
+            query.team = req.activeTeam || req.user.team;
         }
 
         const logs = await Request.find(query)
@@ -58,8 +56,7 @@ exports.getSystemLogs = async (req, res) => {
     try {
         const query = { company: req.userCompany };
         if (req.user.role === 'admin') {
-            const allowedTeams = [req.user.team, ...(req.user.managedTeams || [])].filter(Boolean);
-            query.team = { $in: allowedTeams };
+            query.team = req.activeTeam || req.user.team;
         }
 
         const logs = await AuditLog.find(query)

@@ -227,6 +227,24 @@ io.on('connection', (socket) => {
       socket.join(socket.userTeam.toString());
   }
 
+  // Handle Dynamic Team Context Switching
+  socket.on('switch_team_context', (newTeamId) => {
+    // Leave all previous team rooms (keeping company room)
+    const currentRooms = Array.from(socket.rooms);
+    currentRooms.forEach(room => {
+      // Don't leave personal room or company room
+      if (room !== socket.id && room !== socket.userCompany.toString()) {
+        socket.leave(room);
+      }
+    });
+
+    // Join the new team room and update the socket state
+    if (newTeamId) {
+      socket.join(newTeamId.toString());
+      socket.activeTeam = newTeamId;
+    }
+  });
+
   // Chat logic
   socket.on('send_message', async (data) => {
     try {
@@ -234,10 +252,12 @@ io.on('connection', (socket) => {
       const fileUrl = data.fileUrl || null;
       const fileType = data.fileType || null;
 
+      const activeTeam = socket.activeTeam || socket.userTeam;
+
       let newMessage = new Message({
         user: socket.userId,
         company: socket.userCompany,
-        team: socket.userTeam,
+        team: activeTeam,
         content: content?.trim(),
         fileUrl,
         fileType
@@ -245,9 +265,9 @@ io.on('connection', (socket) => {
       await newMessage.save();
       newMessage = await (await newMessage.populate('user', 'name profileImage role')).populate('readBy', 'name profileImage');
       
-      // Emit to team room instead of company room
-      if (socket.userTeam) {
-        io.to(socket.userTeam.toString()).emit('receive_message', newMessage);
+      // Emit to active team room
+      if (activeTeam) {
+        io.to(activeTeam.toString()).emit('receive_message', newMessage);
       } else {
         io.to(socket.userCompany.toString()).emit('receive_message', newMessage);
       }
