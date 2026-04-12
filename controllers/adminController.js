@@ -11,6 +11,11 @@ exports.getAllUsers = async (req, res) => {
             query.role = { $ne: 'superadmin' };
             // Use activeTeam from context switcher if authorized
             query.team = req.activeTeam || req.user.team;
+            // If they are acting as a member, restrict users list as well
+            // Only show themselves essentially, or perhaps other members if standard policy allows
+            if (!req.isManagerMode) {
+                query._id = req.userId; // Strict mode: Member only sees themselves
+            }
         }
         const users = await User.find(query).sort({ createdAt: -1 }).populate('team', 'name').populate('managedTeams', 'name');
         res.json(users);
@@ -25,6 +30,9 @@ exports.getRequestLogs = async (req, res) => {
         const query = { company: req.userCompany };
         if (req.user.role === 'admin') {
             query.team = req.activeTeam || req.user.team;
+            if (!req.isManagerMode) {
+                query.user = req.userId; // Restrict logs to themselves
+            }
         }
 
         const logs = await Request.find(query)
@@ -57,6 +65,9 @@ exports.getSystemLogs = async (req, res) => {
         const query = { company: req.userCompany };
         if (req.user.role === 'admin') {
             query.team = req.activeTeam || req.user.team;
+            if (!req.isManagerMode) {
+                query.user = req.userId;
+            }
         }
 
         const logs = await AuditLog.find(query)

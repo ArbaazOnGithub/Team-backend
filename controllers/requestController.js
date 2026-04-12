@@ -69,6 +69,10 @@ exports.getRequests = async (req, res) => {
         } else if (req.user.role === 'admin') {
             // Admin sees requests from the active team context
             queryFilter.team = req.activeTeam || req.user.team;
+            // If they are acting as a member, they only see their own requests
+            if (!req.isManagerMode) {
+                queryFilter.user = req.userId;
+            }
         }
         // Superadmin sees all requests in their company
 

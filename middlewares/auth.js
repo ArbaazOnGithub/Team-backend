@@ -22,8 +22,10 @@ const authMiddleware = async (req, res, next) => {
             req.userCompany = user.company;
         }
 
-        // --- GLOBAL CONTEXT SWITCHER: TEAM ---
+        // --- GLOBAL CONTEXT SWITCHER: TEAM & MODE ---
         const teamContextId = req.header('x-team-context');
+        const adminModeHeader = req.header('x-admin-mode') === 'true'; // Force boolean
+
         if (teamContextId) {
             // Validate if user belongs to this team OR manages it
             const isMember = user.team?.toString() === teamContextId;
@@ -31,7 +33,8 @@ const authMiddleware = async (req, res, next) => {
             
             if (isMember || isManager) {
                 req.activeTeam = teamContextId;
-                req.isManagerMode = isManager && user.role === 'admin';
+                // Only allow admin mode if they are actually a manager of this team and have the admin role
+                req.isManagerMode = adminModeHeader && isManager && user.role === 'admin';
             } else {
                 req.activeTeam = user.team; // Fallback to primary
                 req.isManagerMode = false;
