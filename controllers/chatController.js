@@ -4,7 +4,11 @@ const { logAction } = require('../utils/logger');
 
 exports.getMessages = async (req, res) => {
     try {
-        const messages = await Message.find({ company: req.userCompany })
+        const query = { company: req.userCompany };
+        // Strictly filter by team if user has one (superadmins might not have a team assigned)
+        if (req.user.team) query.team = req.user.team;
+
+        const messages = await Message.find(query)
             .sort({ createdAt: -1 })
             .limit(100)
             .populate('user', 'name profileImage role')
@@ -20,7 +24,10 @@ exports.getMessages = async (req, res) => {
 
 exports.getUsers = async (req, res) => {
     try {
-        const users = await User.find({ company: req.userCompany }, 'name profileImage role');
+        const query = { company: req.userCompany };
+        if (req.user.team) query.team = req.user.team;
+
+        const users = await User.find(query, 'name profileImage role');
         res.json(users);
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch users' });

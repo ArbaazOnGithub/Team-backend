@@ -11,6 +11,8 @@ const UserSchema = new mongoose.Schema({
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
     fcmToken: { type: String }, // Store device token for push notifications
     company: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', required: true },
+    team: { type: mongoose.Schema.Types.ObjectId, ref: 'Team' }, // Optional for superadmins, required for regular users
+    managedTeams: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Team' }], // Teams this user can manage (for admins)
     paidLeaveBalance: { type: Number, default: 12 },
 
     // Fields for Password Reset

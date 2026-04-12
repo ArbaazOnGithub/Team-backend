@@ -18,6 +18,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const companyRoutes = require('./routes/companyRoutes');
+const teamRoutes = require('./routes/teamRoutes');
 const Message = require('./models/Message');
 const { sendPushNotification } = require('./utils/notificationService');
 
@@ -147,6 +148,7 @@ io.use(async (socket, next) => {
     
     socket.userId = user._id;
     socket.userCompany = user.company; // Multi-tenancy context
+    socket.userTeam = user.team; // Team context
     next();
   } catch (err) {
     next(new Error('Authentication error'));
@@ -159,6 +161,7 @@ app.use('/api/requests', requestRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/teams', teamRoutes);
 
 app.get('/', (req, res) => res.send("Backend is Running"));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
@@ -220,6 +223,9 @@ io.on('connection', (socket) => {
   if (socket.userCompany) {
       socket.join(socket.userCompany.toString());
   }
+  if (socket.userTeam) {
+      socket.join(socket.userTeam.toString());
+  }
 
   // Chat logic
   socket.on('send_message', async (data) => {
@@ -231,16 +237,28 @@ io.on('connection', (socket) => {
       let newMessage = new Message({
         user: socket.userId,
         company: socket.userCompany,
+        team: socket.userTeam,
         content: content?.trim(),
         fileUrl,
         fileType
       });
       await newMessage.save();
       newMessage = await (await newMessage.populate('user', 'name profileImage role')).populate('readBy', 'name profileImage');
-      io.to(socket.userCompany.toString()).emit('receive_message', newMessage);
+      
+      // Emit to team room instead of company room
+      if (socket.userTeam) {
+        io.to(socket.userTeam.toString()).emit('receive_message', newMessage);
+      } else {
+        io.to(socket.userCompany.toString()).emit('receive_message', newMessage);
+      }
 
-      // Send Push Notification to all users in the same company except the sender
-      const usersInCompany = await User.find({ company: socket.userCompany, _id: { $ne: socket.userId }, fcmToken: { $exists: true, $ne: '' } });
+      // Send Push Notification to all users in the same team except the sender
+      const usersInTeam = await User.find({ 
+        company: socket.userCompany, 
+        team: socket.userTeam,
+        _id: { $ne: socket.userId }, 
+        fcmToken: { $exists: true, $ne: '' } 
+      });
       const tokens = usersInCompany.map(u => u.fcmToken);
       
       if (tokens.length > 0) {
@@ -259,7 +277,11 @@ io.on('connection', (socket) => {
         msg.readBy.push(socket.userId);
         await msg.save();
         const updatedMsg = await msg.populate('readBy', 'name profileImage');
-        io.to(socket.userCompany.toString()).emit('message_read_update', { messageId: msg._id, readBy: updatedMsg.readBy });
+        if (socket.userTeam) {
+          io.to(socket.userTeam.toString()).emit('message_read_update', { messageId: msg._id, readBy: updatedMsg.readBy });
+        } else {
+          io.to(socket.userCompany.toString()).emit('message_read_update', { messageId: msg._id, readBy: updatedMsg.readBy });
+        }
       }
     } catch (err) {
       console.error("Read mark error:", err);

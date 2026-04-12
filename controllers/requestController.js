@@ -17,6 +17,7 @@ exports.createRequest = async (req, res) => {
             let newReq = new Request({
                 user: req.userId,
                 company: req.userCompany,
+                team: req.user.team, // Automatically assign to user's team
                 query: query.trim(),
                 requestNo,
                 requestType: requestType || 'General',
@@ -61,8 +62,17 @@ exports.getRequests = async (req, res) => {
     try {
         const { status, limit = 50, page = 1 } = req.query;
         let queryFilter = { company: req.userCompany };
+        
+        if (req.user.role === 'user') {
+            queryFilter.user = req.userId;
+            queryFilter.team = req.user.team;
+        } else if (req.user.role === 'admin') {
+            // Admin sees requests from teams they manage
+            queryFilter.team = { $in: req.user.managedTeams };
+        }
+        // Superadmin sees all requests in their company
+
         if (status) queryFilter.status = status;
-        if (!['admin', 'superadmin'].includes(req.user.role)) queryFilter.user = req.userId;
         const skip = (page - 1) * limit;
         const requests = await Request.find(queryFilter)
             .sort({ createdAt: -1 })
@@ -145,7 +155,14 @@ exports.deleteRequest = async (req, res) => {
 exports.getStats = async (req, res) => {
     try {
         let queryFilter = { company: req.userCompany };
-        if (!['admin', 'superadmin'].includes(req.user.role)) queryFilter.user = req.userId;
+        
+        if (req.user.role === 'user') {
+            queryFilter.user = req.userId;
+            queryFilter.team = req.user.team;
+        } else if (req.user.role === 'admin') {
+            queryFilter.team = { $in: req.user.managedTeams };
+        }
+
         const stats = await Request.aggregate([{ $match: queryFilter }, { $group: { _id: '$status', count: { $sum: 1 } } }]);
         const formattedStats = { Pending: 0, Approved: 0, Resolved: 0, Cancelled: 0 };
         stats.forEach(stat => { formattedStats[stat._id] = stat.count; });

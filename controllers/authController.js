@@ -6,9 +6,10 @@ const { logAction } = require('../utils/logger');
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 exports.register = async (req, res) => {
-    const { mobile, name, password, email, companyId } = req.body;
+    const { mobile, name, password, email, companyId, teamId } = req.body;
 
     if (!mobile || !name || !password || !email || !companyId) return res.status(400).json({ error: 'All fields, including company, are required' });
+    // teamId is required unless it's the very first user (who becomes admin) or a SuperAdmin bypassed it
     if (!/^[0-9]{10}$/.test(mobile)) return res.status(400).json({ error: 'Mobile must be 10 digits' });
     if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
@@ -25,8 +26,14 @@ exports.register = async (req, res) => {
             }
             // For multi-tenancy: Ensure admin can only register users in their own company
             // (SuperAdmin can bypass this via req.userCompany context)
-            if (req.user.role === 'admin' && req.user.company.toString() !== companyId) {
-                return res.status(403).json({ error: 'Unauthorized: You can only register users for your own company.' });
+            if (req.user.role === 'admin') {
+                if (req.user.company.toString() !== companyId) {
+                    return res.status(403).json({ error: 'Unauthorized: You can only register users for your own company.' });
+                }
+                // Enforce that Admin can only register users for their own team
+                if (!teamId || req.user.team.toString() !== teamId) {
+                    return res.status(403).json({ error: 'Unauthorized: Admins can only register users for their own team.' });
+                }
             }
         }
 
@@ -37,8 +44,19 @@ exports.register = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt);
 
         const role = userCount === 0 ? 'admin' : 'user';
-
-        const newUser = new User({ mobile, email, name, password: hashedPassword, profileImage, role, company: companyId });
+        
+        // If it's the first user, they don't have a team yet (handled later by SuperAdmin)
+        // For others, teamId is expected unless SuperAdmin is creating them without one.
+        const newUser = new User({ 
+            mobile, 
+            email, 
+            name, 
+            password: hashedPassword, 
+            profileImage, 
+            role, 
+            company: companyId,
+            team: teamId || undefined 
+        });
         await newUser.save();
 
         const token = jwt.sign({ userId: newUser._id }, JWT_SECRET, { expiresIn: '7d' });
@@ -55,7 +73,7 @@ exports.login = async (req, res) => {
     if (!mobile || !password || !companyId) return res.status(400).json({ error: 'Mobile, password, and company required' });
 
     try {
-        const user = await User.findOne({ mobile, company: companyId });
+        const user = await User.findOne({ mobile, company: companyId }).populate('team', 'name').populate('managedTeams', 'name');
         if (!user) return res.status(404).json({ error: "User not found in this company" });
 
         const isMatch = await bcrypt.compare(password, user.password);

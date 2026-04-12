@@ -4,12 +4,13 @@ const AuditLog = require('../models/AuditLog');
 const { logAction } = require('../utils/logger');
 
 // Get all users
-exports.getAllUsers = async (req, res) => {
     try {
-        // If the requester is an admin (but not a superadmin), hide the superadmin from the list
         const query = { company: req.userCompany };
-        if (req.user.role === 'admin') query.role = { $ne: 'superadmin' };
-        const users = await User.find(query).sort({ createdAt: -1 });
+        if (req.user.role === 'admin') {
+            query.role = { $ne: 'superadmin' };
+            query.team = { $in: req.user.managedTeams };
+        }
+        const users = await User.find(query).sort({ createdAt: -1 }).populate('team', 'name').populate('managedTeams', 'name');
         res.json(users);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch users' });
@@ -17,12 +18,17 @@ exports.getAllUsers = async (req, res) => {
 };
 
 // Get all request logs for admin
-exports.getRequestLogs = async (req, res) => {
     try {
-        const logs = await Request.find({ company: req.userCompany })
+        const query = { company: req.userCompany };
+        if (req.user.role === 'admin') {
+            query.team = { $in: req.user.managedTeams };
+        }
+
+        const logs = await Request.find(query)
             .sort({ createdAt: -1 })
             .populate('user', 'name email mobile')
-            .populate('actionBy', 'name');
+            .populate('actionBy', 'name')
+            .populate('team', 'name');
         res.json(logs);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch request logs' });
@@ -43,11 +49,16 @@ exports.getSystemErrorLogs = async (req, res) => {
 };
 
 // Get all request logs for admin
-exports.getSystemLogs = async (req, res) => {
     try {
-        const logs = await AuditLog.find({ company: req.userCompany })
+        const query = { company: req.userCompany };
+        if (req.user.role === 'admin') {
+            query.team = { $in: req.user.managedTeams };
+        }
+
+        const logs = await AuditLog.find(query)
             .sort({ createdAt: -1 })
-            .populate('user', 'name email role');
+            .populate('user', 'name email role')
+            .populate('team', 'name');
         res.json(logs);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch system logs' });
@@ -62,17 +73,21 @@ exports.updateUserRole = async (req, res) => {
             return res.status(403).json({ error: 'Access denied. Only Super Admins can modify roles.' });
         }
 
-        const { userId, role } = req.body;
+        const { userId, role, teamId, managedTeams } = req.body;
         // Cannot assign superadmin role to anyone else via this endpoint
         if (!['user', 'admin'].includes(role)) {
             return res.status(400).json({ error: 'Invalid role assignment' });
         }
 
+        const updateData = { role };
+        if (teamId) updateData.team = teamId;
+        if (managedTeams) updateData.managedTeams = managedTeams;
+
         const user = await User.findOneAndUpdate(
             { _id: userId, company: req.userCompany },
-            { role },
+            updateData,
             { new: true }
-        );
+        ).populate('team', 'name').populate('managedTeams', 'name');
         if (!user) return res.status(404).json({ error: 'User not found' });
 
         await logAction(req.userId, `Changed role of ${user.name} to ${role}`, 'admin', { targetUserId: userId, newRole: role }, req.userCompany);
