@@ -67,8 +67,9 @@ exports.getRequests = async (req, res) => {
             queryFilter.user = req.userId;
             queryFilter.team = req.user.team;
         } else if (req.user.role === 'admin') {
-            // Admin sees requests from teams they manage
-            queryFilter.team = { $in: req.user.managedTeams };
+            // Admin sees requests from their own team AND teams they manage
+            const allowedTeams = [req.user.team, ...(req.user.managedTeams || [])].filter(Boolean);
+            queryFilter.team = { $in: allowedTeams };
         }
         // Superadmin sees all requests in their company
 

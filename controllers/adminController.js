@@ -9,7 +9,9 @@ exports.getAllUsers = async (req, res) => {
         const query = { company: req.userCompany };
         if (req.user.role === 'admin') {
             query.role = { $ne: 'superadmin' };
-            query.team = { $in: req.user.managedTeams };
+            // Include their primary team AND any additional managed teams
+            const allowedTeams = [req.user.team, ...(req.user.managedTeams || [])].filter(Boolean);
+            query.team = { $in: allowedTeams };
         }
         const users = await User.find(query).sort({ createdAt: -1 }).populate('team', 'name').populate('managedTeams', 'name');
         res.json(users);
@@ -23,7 +25,8 @@ exports.getRequestLogs = async (req, res) => {
     try {
         const query = { company: req.userCompany };
         if (req.user.role === 'admin') {
-            query.team = { $in: req.user.managedTeams };
+            const allowedTeams = [req.user.team, ...(req.user.managedTeams || [])].filter(Boolean);
+            query.team = { $in: allowedTeams };
         }
 
         const logs = await Request.find(query)
@@ -55,7 +58,8 @@ exports.getSystemLogs = async (req, res) => {
     try {
         const query = { company: req.userCompany };
         if (req.user.role === 'admin') {
-            query.team = { $in: req.user.managedTeams };
+            const allowedTeams = [req.user.team, ...(req.user.managedTeams || [])].filter(Boolean);
+            query.team = { $in: allowedTeams };
         }
 
         const logs = await AuditLog.find(query)
