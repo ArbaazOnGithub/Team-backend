@@ -4,6 +4,7 @@ const AuditLog = require('../models/AuditLog');
 const { logAction } = require('../utils/logger');
 
 // Get all users
+exports.getAllUsers = async (req, res) => {
     try {
         const query = { company: req.userCompany };
         if (req.user.role === 'admin') {
@@ -18,6 +19,7 @@ const { logAction } = require('../utils/logger');
 };
 
 // Get all request logs for admin
+exports.getRequestLogs = async (req, res) => {
     try {
         const query = { company: req.userCompany };
         if (req.user.role === 'admin') {
@@ -49,6 +51,7 @@ exports.getSystemErrorLogs = async (req, res) => {
 };
 
 // Get all request logs for admin
+exports.getSystemLogs = async (req, res) => {
     try {
         const query = { company: req.userCompany };
         if (req.user.role === 'admin') {

@@ -259,7 +259,7 @@ io.on('connection', (socket) => {
         _id: { $ne: socket.userId }, 
         fcmToken: { $exists: true, $ne: '' } 
       });
-      const tokens = usersInCompany.map(u => u.fcmToken);
+      const tokens = usersInTeam.map(u => u.fcmToken);
       
       if (tokens.length > 0) {
         const { notifyMultiple } = require('./utils/notificationService');
