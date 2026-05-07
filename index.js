@@ -169,6 +169,21 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 app.use(errorHandler);
 
 // --- 7. CRON JOBS ---
+// Self-pinging heartbeat to keep Render instance awake
+if (process.env.RENDER_KEEP_ALIVE === 'true') {
+  const https = require('https');
+  const keepAliveUrl = process.env.BACKEND_URL || `http://localhost:${PORT}`;
+  
+  setInterval(() => {
+    https.get(keepAliveUrl, (res) => {
+      console.log(`[Heartbeat] Sent to ${keepAliveUrl}: Status ${res.statusCode}`);
+    }).on('error', (err) => {
+      console.error('[Heartbeat] Error:', err.message);
+    });
+  }, 14 * 60 * 1000); // Ping every 14 minutes
+  console.log("✓ Render Keep-Alive Heartbeat initialized (14m interval)");
+}
+
 // Increment paidLeaveBalance by 2.5 on the 1st of every month at midnight
 cron.schedule('0 0 1 * *', async () => {
   try {
